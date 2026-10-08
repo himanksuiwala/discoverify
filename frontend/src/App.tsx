@@ -33,6 +33,27 @@ import type {
 } from "./types";
 import { CaseMap } from "./CaseMap";
 
+import {
+  FolderSimple,
+  Tray,
+  User,
+  CaretLeft,
+  CaretRight,
+  SignOut,
+  ArrowUpRight,
+  ArrowRight,
+  ArrowLeft,
+  MapPin,
+  CalendarBlank,
+  Clock,
+  Camera,
+  Car,
+  ShieldCheck,
+  Crosshair,
+  Copy,
+  Check,
+} from "@phosphor-icons/react";
+
 import demoImage1 from "../assets/image_1.png";
 import demoImage2 from "../assets/image_2.png";
 import demoImage3 from "../assets/image_3.png";
@@ -132,9 +153,9 @@ function useToast() {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link className={`brand ${compact ? "brand--compact" : ""}`} to="/" aria-label="Archetype home">
-      <span className="brand-mark" aria-hidden="true">A</span>
-      <span className="brand-copy"><strong>Archetype</strong>{!compact ? <small>Recovery operations</small> : null}</span>
+    <Link className={`brand ${compact ? "brand--compact" : ""}`} to="/" aria-label="Discovery File home">
+      <span className="brand-mark" aria-hidden="true">DF</span>
+      <span className="brand-copy"><strong>Discovery File</strong>{!compact ? <small>Recovery operations</small> : null}</span>
     </Link>
   );
 }
@@ -156,9 +177,16 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [copiedField, setCopiedField] = useState<"email" | "password" | null>(null);
 
   if (status === "loading") return <LoadingScreen />;
   if (user) return <Navigate to="/" replace />;
+
+  const handleCopy = (text: string, field: "email" | "password") => {
+    void navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 1500);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -184,18 +212,16 @@ function LoginPage() {
           <h1>Every sighting.<br />One clear trail.</h1>
           <p>Review field intelligence, claim eligible work, and follow a vehicle’s location history.</p>
         </div>
-        <p className="context-footnote">Local demonstration environment / 2026</p>
       </section>
       <main className="login-main">
         <div className="login-panel">
           <header className="login-heading">
-            <span className="step-label">Workspace access / 01</span>
             <h2>Sign in to operations</h2>
-            <p>Use the credentials assigned to your tenant.</p>
+            <p>Use your operational credentials to access cases and surveillance records.</p>
           </header>
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <label><span>Email address</span><input type="email" name="email" autoComplete="email" value={email}
-              onChange={(event) => setEmail(event.target.value)} placeholder="name@archetype.local" required autoFocus /></label>
+              onChange={(event) => setEmail(event.target.value)} placeholder="name@operations.local" required autoFocus /></label>
             <label><span>Password</span><span className="password-field">
               <input type={showPassword ? "text" : "password"} name="password" autoComplete="current-password"
                 value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
@@ -207,8 +233,32 @@ function LoginPage() {
               <span>{submitting ? "Signing in…" : "Sign in"}</span><span aria-hidden="true">→</span>
             </button>
           </form>
-          <aside className="demo-note" aria-label="Demo credentials">
-            <span>Demo access</span><code>tenant1.admin@archetype.local</code><code>ArchetypeDemo!2026</code>
+          <aside className="credentials-note" aria-label="Access credentials">
+            <span className="credentials-label">Access credentials</span>
+            <div className="credential-row">
+              <code>tenant1.admin@archetype.local</code>
+              <button
+                type="button"
+                className="copy-credential-btn"
+                onClick={() => handleCopy("tenant1.admin@archetype.local", "email")}
+                title="Copy email"
+                aria-label="Copy email"
+              >
+                {copiedField === "email" ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
+              </button>
+            </div>
+            <div className="credential-row">
+              <code>ArchetypeDemo!2026</code>
+              <button
+                type="button"
+                className="copy-credential-btn"
+                onClick={() => handleCopy("ArchetypeDemo!2026", "password")}
+                title="Copy password"
+                aria-label="Copy password"
+              >
+                {copiedField === "password" ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
+              </button>
+            </div>
           </aside>
         </div>
       </main>
@@ -220,6 +270,7 @@ function ProtectedShell() {
   const { status, user, logout } = useAuth();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   if (status === "loading") return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace state={{ from: window.location.pathname + window.location.search }} />;
@@ -231,22 +282,64 @@ function ProtectedShell() {
   };
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div>
-          <Brand />
-          <p className="sidebar-label">Case desk</p>
+    <div className={`app-shell ${collapsed ? "app-shell--collapsed" : ""}`}>
+      <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
+        <button
+          className="sidebar-toggle"
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <CaretRight size={13} weight="bold" /> : <CaretLeft size={13} weight="bold" />}
+        </button>
+        <div className="sidebar-top">
+          <Brand compact={collapsed} />
+          <p className={`sidebar-label ${collapsed ? "sidebar-label--hidden" : ""}`}>Case desk</p>
           <nav className="primary-nav" aria-label="Primary navigation">
-            {user.role !== "AGENT" ? <NavLink to="/cases" end><span aria-hidden="true">01</span><strong>My Cases</strong></NavLink> : null}
-            {user.role === "STAFF" ? <NavLink to="/cases/claimable"><span aria-hidden="true">02</span><strong>Claimable Cases</strong></NavLink> : null}
-            {user.role === "AGENT" ? <NavLink to="/profile"><span aria-hidden="true">01</span><strong>My Profile</strong></NavLink> : null}
+            {user.role !== "AGENT" ? (
+              <NavLink to="/cases" end title="My Cases">
+                <FolderSimple size={20} weight="regular" />
+                {!collapsed && <strong>My Cases</strong>}
+              </NavLink>
+            ) : null}
+            {user.role === "STAFF" ? (
+              <NavLink to="/cases/claimable" title="Claimable Cases">
+                <Tray size={20} weight="regular" />
+                {!collapsed && <strong>Claimable Cases</strong>}
+              </NavLink>
+            ) : null}
+            {user.role === "AGENT" ? (
+              <NavLink to="/profile" title="My Profile">
+                <User size={20} weight="regular" />
+                {!collapsed && <strong>My Profile</strong>}
+              </NavLink>
+            ) : null}
           </nav>
         </div>
-        <div className="sidebar-account">
-          <div className="account-avatar" aria-hidden="true">{user.firstName[0]}{user.lastName[0]}</div>
-          <div className="account-copy"><strong>{user.firstName} {user.lastName}</strong><span>{user.role} · {user.tenant.name}</span></div>
-          <button className="text-action" type="button" onClick={() => void handleLogout()} disabled={signingOut}>
-            {signingOut ? "Signing out…" : "Sign out"}
+        <div
+          className="sidebar-account"
+          title={collapsed ? `${user.firstName} ${user.lastName} (${user.role} · ${user.tenant.name})` : undefined}
+        >
+          <div className="account-user-info">
+            <div className="account-avatar" aria-hidden="true">{user.firstName[0]}{user.lastName[0]}</div>
+            {!collapsed && (
+              <div className="account-copy">
+                <strong>{user.firstName} {user.lastName}</strong>
+                <span>{user.role} · {user.tenant.name}</span>
+              </div>
+            )}
+          </div>
+          <button
+            className="account-signout-btn"
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={signingOut}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <SignOut size={16} weight="bold" />
+            {!collapsed && <span>{signingOut ? "Signing out…" : "Sign out"}</span>}
           </button>
         </div>
       </aside>
@@ -299,22 +392,58 @@ function useCaseCollection(path: string, query: URLSearchParams, reloadKey: numb
       .then((data) => setState({ data, loading: false, error: "" }))
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === "AbortError") return;
-        setState((current) => ({ ...current, loading: false,
-          error: reason instanceof Error ? reason.message : "Cases could not be loaded" }));
+        setState((current) => ({
+          ...current, loading: false,
+          error: reason instanceof Error ? reason.message : "Cases could not be loaded"
+        }));
       });
     return () => controller.abort();
   }, [path, queryString, reloadKey]);
   return state;
 }
 
-function PageHeader({ eyebrow, title, description, count }: {
-  eyebrow: string; title: string; description: string; count?: number;
+function PageHeader({ eyebrow, title, description, count, compact = false }: {
+  eyebrow: string; title: string; description: string; count?: number; compact?: boolean;
 }) {
   return (
-    <header className="page-header">
-      <div><p className="kicker">{eyebrow}</p><h1>{title}</h1><p>{description}</p></div>
-      {count !== undefined ? <div className="record-count" aria-label={`${count} total records`}><strong>{count}</strong><span>Records</span></div> : null}
+    <header className={`page-header ${compact ? "page-header--compact" : ""}`}>
+      <div className="page-header-main">
+        <p className="kicker">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p className="page-header-desc">{description}</p>
+      </div>
+      {count !== undefined ? (
+        <div className="record-count" aria-label={`${count} total records`}>
+          <strong>{count}</strong>
+          <span>Records</span>
+        </div>
+      ) : null}
     </header>
+  );
+}
+
+function Pagination({ page, pageCount, limit, onLimit, onPrevious, onNext }: {
+  page: number; pageCount: number; limit: number; onLimit: (value: number) => void; onPrevious: () => void; onNext: () => void;
+}) {
+  return (
+    <nav className="pagination" aria-label="Case pages">
+      <label>
+        Rows
+        <select value={limit} onChange={(event) => onLimit(Number(event.target.value))}>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+        </select>
+      </label>
+      <span>Page <strong>{page}</strong> of {pageCount}</span>
+      <div className="pagination-actions">
+        <button className="button button--quiet button--sm" type="button" disabled={page <= 1} onClick={onPrevious}>
+          <CaretLeft size={13} weight="bold" /> Previous
+        </button>
+        <button className="button button--quiet button--sm" type="button" disabled={page >= pageCount} onClick={onNext}>
+          Next <CaretRight size={13} weight="bold" />
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -372,89 +501,179 @@ function CasesPage({ claimable = false }: { claimable?: boolean }) {
   };
 
   return (
-    <div className="page-frame">
-      <PageHeader eyebrow={claimable ? "Shared recovery pool" : "Tenant case register"}
+    <div className="cases-view">
+      <PageHeader
+        eyebrow={claimable ? "Available for assignment" : "Case register"}
         title={claimable ? "Claimable Cases" : "My Cases"}
-        description={claimable ? "Eligible vehicles awaiting ownership. Claiming assigns the case to you and your tenant."
-          : "Active and closed recovery work belonging to your tenant."}
-        count={collection.data?.total} />
+        description={claimable ? "Eligible vehicles awaiting ownership. Claiming assigns the case directly to you."
+          : "Active and closed vehicle recovery cases."}
+        count={collection.data?.total}
+        compact
+      />
 
       <form className="filter-bar" onSubmit={applyFilters}>
-        {!claimable ? <label><span>Status</span><select value={caseStatus} onChange={(event) => { setCaseStatus(event.target.value); setOffset(0); }}>
-          <option value="">All statuses</option><option value="ACTIVE">Active</option><option value="CLOSED">Closed</option>
-        </select></label> : null}
-        <label><span>VIN</span><input value={draftVin} onChange={(event) => setDraftVin(event.target.value)} placeholder="17-character VIN" /></label>
-        <label><span>Plate</span><input value={draftPlate} onChange={(event) => setDraftPlate(event.target.value)} placeholder="Plate number" /></label>
-        <div className="filter-actions"><button className="button button--dark" type="submit">Apply filters</button>
-          <button className="button button--quiet" type="button" onClick={clearFilters}>Clear</button></div>
+        {!claimable ? (
+          <label>
+            <span>Status</span>
+            <select value={caseStatus} onChange={(event) => { setCaseStatus(event.target.value); setOffset(0); }}>
+              <option value="">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </label>
+        ) : null}
+        <label>
+          <span>VIN</span>
+          <input value={draftVin} onChange={(event) => setDraftVin(event.target.value)} placeholder="17-character VIN" />
+        </label>
+        <label>
+          <span>Plate</span>
+          <input value={draftPlate} onChange={(event) => setDraftPlate(event.target.value)} placeholder="Plate number" />
+        </label>
+        <div className="filter-actions">
+          <button className="button button--dark" type="submit">Apply filters</button>
+          <button className="button button--quiet" type="button" onClick={clearFilters}>Clear</button>
+        </div>
       </form>
 
-      {collection.error ? <ErrorPanel message={collection.error} onRetry={() => setReloadKey((value) => value + 1)} />
-        : collection.loading && !collection.data ? <CaseListSkeleton />
-        : collection.data?.items.length ? <><CaseTable items={collection.data.items} claimable={claimable} onClaim={setSelectedCase} />
-          <Pagination page={page} pageCount={pageCount} limit={limit}
-            onLimit={(value) => { setLimit(value); setOffset(0); }}
-            onPrevious={() => setOffset(Math.max(0, offset - limit))} onNext={() => setOffset(offset + limit)} /></>
-        : <EmptyState filtered={Boolean(vin || plate || caseStatus)} claimable={claimable} onClear={clearFilters} />}
+      {collection.error ? (
+        <ErrorPanel message={collection.error} onRetry={() => setReloadKey((value) => value + 1)} />
+      ) : collection.loading && !collection.data ? (
+        <CaseListSkeleton />
+      ) : collection.data?.items.length ? (
+        <CaseTable
+          items={collection.data.items}
+          claimable={claimable}
+          onClaim={setSelectedCase}
+          pagination={
+            <Pagination
+              page={page}
+              pageCount={pageCount}
+              limit={limit}
+              onLimit={(value) => { setLimit(value); setOffset(0); }}
+              onPrevious={() => setOffset(Math.max(0, offset - limit))}
+              onNext={() => setOffset(offset + limit)}
+            />
+          }
+        />
+      ) : (
+        <EmptyState filtered={Boolean(vin || plate || caseStatus)} claimable={claimable} onClear={clearFilters} />
+      )}
 
-      <ClaimDialog recoveryCase={selectedCase} busy={claiming} error={claimError}
+      <ClaimDialog
+        recoveryCase={selectedCase}
+        busy={claiming}
+        error={claimError}
         onClose={() => { if (!claiming) { setSelectedCase(null); setClaimError(""); } }}
-        onConfirm={() => void claimSelected()} />
+        onConfirm={() => void claimSelected()}
+      />
     </div>
   );
 }
 
-function CaseTable({ items, claimable, onClaim }: {
-  items: CaseSummary[]; claimable: boolean; onClaim: (item: CaseSummary) => void;
+function CaseTable({ items, claimable, onClaim, pagination }: {
+  items: CaseSummary[]; claimable: boolean; onClaim: (item: CaseSummary) => void; pagination?: ReactNode;
 }) {
   return (
     <section className="case-register" aria-label="Recovery cases">
-      <div className="table-wrap"><table><thead><tr>
-        <th>Case</th><th>Vehicle</th><th>Status</th>{!claimable ? <th>Assignee</th> : null}
-        <th>Latest sighting</th><th>{claimable ? "Created" : "Updated"}</th>
-        {claimable ? <th><span className="sr-only">Action</span></th> : null}
-      </tr></thead><tbody>{items.map((item) => (
-        <tr key={item.id}>
-          <td>{claimable ? <strong className="case-code">{caseNumber(item.id)}</strong>
-            : <Link className="case-link" to={`/cases/${item.id}`}>{caseNumber(item.id)} <span aria-hidden="true">↗</span></Link>}</td>
-          <td><VehicleIdentity item={item} /></td><td><StatusBadge status={item.status} /></td>
-          {!claimable ? <td>{item.assignee ? `${item.assignee.first_name} ${item.assignee.last_name}` : "Unassigned"}</td> : null}
-          <td>{item.latest_sighting ? <><DateText value={item.latest_sighting.scanned_at} /><small>{item.latest_sighting.latitude.toFixed(4)}, {item.latest_sighting.longitude.toFixed(4)}</small></> : <span className="muted">No sightings</span>}</td>
-          <td><DateText value={claimable ? item.created_at : item.updated_at} /></td>
-          {claimable ? <td><button className="button button--claim" type="button" onClick={() => onClaim(item)}>Claim <span aria-hidden="true">→</span></button></td> : null}
-        </tr>
-      ))}</tbody></table></div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Case</th>
+              <th>Vehicle</th>
+              <th>Status</th>
+              {!claimable ? <th>Assignee</th> : null}
+              <th>Latest sighting</th>
+              <th>{claimable ? "Created" : "Updated"}</th>
+              {claimable ? <th><span className="sr-only">Action</span></th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  {claimable ? (
+                    <strong className="case-code">{caseNumber(item.id)}</strong>
+                  ) : (
+                    <Link className="case-link" to={`/cases/${item.id}`}>
+                      {caseNumber(item.id)} <ArrowUpRight size={12} weight="bold" />
+                    </Link>
+                  )}
+                </td>
+                <td><VehicleIdentity item={item} /></td>
+                <td><StatusBadge status={item.status} /></td>
+                {!claimable ? <td>{item.assignee ? `${item.assignee.first_name} ${item.assignee.last_name}` : "Unassigned"}</td> : null}
+                <td>
+                  {item.latest_sighting ? (
+                    <>
+                      <DateText value={item.latest_sighting.scanned_at} />
+                      <small>{item.latest_sighting.latitude.toFixed(4)}, {item.latest_sighting.longitude.toFixed(4)}</small>
+                    </>
+                  ) : (
+                    <span className="muted">No sightings</span>
+                  )}
+                </td>
+                <td><DateText value={claimable ? item.created_at : item.updated_at} /></td>
+                {claimable ? (
+                  <td>
+                    <button className="button button--claim" type="button" onClick={() => onClaim(item)}>
+                      Claim <ArrowRight size={13} weight="bold" />
+                    </button>
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <div className="case-cards">{items.map((item) => (
-        <article className="case-card" key={item.id}>
-          <header><span className="case-code">{caseNumber(item.id)}</span><StatusBadge status={item.status} /></header>
-          <VehicleIdentity item={item} />
-          <dl><div><dt>Latest sighting</dt><dd>{item.latest_sighting ? <DateText value={item.latest_sighting.scanned_at} /> : "No sightings"}</dd></div>
-            <div><dt>{claimable ? "Created" : "Assignee"}</dt><dd>{claimable ? <DateText value={item.created_at} />
-              : item.assignee ? `${item.assignee.first_name} ${item.assignee.last_name}` : "Unassigned"}</dd></div></dl>
-          {claimable ? <button className="button button--claim" type="button" onClick={() => onClaim(item)}>Claim case <span aria-hidden="true">→</span></button>
-            : <Link className="button button--dark" to={`/cases/${item.id}`}>Open case <span aria-hidden="true">→</span></Link>}
-        </article>
-      ))}</div>
+      <div className="case-cards">
+        {items.map((item) => (
+          <article className="case-card" key={item.id}>
+            <header>
+              <span className="case-code">{caseNumber(item.id)}</span>
+              <StatusBadge status={item.status} />
+            </header>
+            <VehicleIdentity item={item} />
+            <dl>
+              <div>
+                <dt>Latest sighting</dt>
+                <dd>{item.latest_sighting ? <DateText value={item.latest_sighting.scanned_at} /> : "No sightings"}</dd>
+              </div>
+              <div>
+                <dt>{claimable ? "Created" : "Assignee"}</dt>
+                <dd>
+                  {claimable ? (
+                    <DateText value={item.created_at} />
+                  ) : item.assignee ? (
+                    `${item.assignee.first_name} ${item.assignee.last_name}`
+                  ) : (
+                    "Unassigned"
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {claimable ? (
+              <button className="button button--claim" type="button" onClick={() => onClaim(item)}>
+                Claim case <ArrowRight size={13} weight="bold" />
+              </button>
+            ) : (
+              <Link className="button button--dark" to={`/cases/${item.id}`}>
+                Open case <ArrowRight size={13} weight="bold" />
+              </Link>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {pagination}
     </section>
   );
 }
 
 function VehicleIdentity({ item }: { item: CaseSummary }) {
   return <div className="vehicle-identity"><strong>{item.vehicle.plate}</strong><span>{item.vehicle.make} {item.vehicle.model}</span><code>{item.vehicle.vin}</code></div>;
-}
-
-function Pagination({ page, pageCount, limit, onLimit, onPrevious, onNext }: {
-  page: number; pageCount: number; limit: number; onLimit: (value: number) => void; onPrevious: () => void; onNext: () => void;
-}) {
-  return (
-    <nav className="pagination" aria-label="Case pages">
-      <label>Rows <select value={limit} onChange={(event) => onLimit(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
-      <span>Page <strong>{page}</strong> of {pageCount}</span>
-      <div><button className="button button--quiet" type="button" disabled={page <= 1} onClick={onPrevious}>← Previous</button>
-        <button className="button button--quiet" type="button" disabled={page >= pageCount} onClick={onNext}>Next →</button></div>
-    </nav>
-  );
 }
 
 function ClaimDialog({ recoveryCase, busy, error, onClose, onConfirm }: {
@@ -474,7 +693,7 @@ function ClaimDialog({ recoveryCase, busy, error, onClose, onConfirm }: {
       onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="dialog-sheet">
         <p className="kicker">Confirm assignment</p><h2>Claim {caseNumber(recoveryCase.id)}?</h2>
-        <p>This makes the case active for your tenant and assigns it directly to you.</p>
+        <p>This marks the case as active and assigns it directly to you.</p>
         <div className="dialog-vehicle"><strong>{recoveryCase.vehicle.plate}</strong><span>{recoveryCase.vehicle.make} {recoveryCase.vehicle.model}</span><code>{recoveryCase.vehicle.vin}</code></div>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
         <div className="dialog-actions"><button className="button button--quiet" type="button" onClick={onClose} disabled={busy}>Cancel</button>
@@ -490,6 +709,27 @@ function CaseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [selectedScanId, setSelectedScanId] = useState<number | null>(null);
+  const mapPaneRef = useRef<HTMLDivElement>(null);
+  const [mapPaneHeight, setMapPaneHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const el = mapPaneRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h > 0) setMapPaneHeight(h);
+    };
+    update();
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = Math.round(entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height);
+        if (h > 0) setMapPaneHeight(h);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -505,43 +745,118 @@ function CaseDetailPage() {
   }, [caseId, reloadKey]);
 
   if (loading && !data) return <div className="page-frame"><DetailSkeleton /></div>;
-  if (error || !data) return <div className="page-frame"><Link className="back-link" to="/cases">← Back to cases</Link>
-    <ErrorPanel message={error || "The case was not found"} onRetry={() => setReloadKey((value) => value + 1)} /></div>;
+  if (error || !data) return (
+    <div className="page-frame">
+      <Link className="back-link" to="/cases">
+        <ArrowLeft size={14} weight="bold" />
+        <span>Back to My Cases</span>
+      </Link>
+      <ErrorPanel message={error || "The case was not found"} onRetry={() => setReloadKey((value) => value + 1)} />
+    </div>
+  );
 
   const demoImage = getCaseDemoImage(data.id);
-  const latest = data.scans[0] ?? null;
+
+  const handleSelectScan = (scanId: number) => {
+    setSelectedScanId(scanId);
+    const el = document.getElementById(`scan-${scanId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("scan-highlight");
+      setTimeout(() => el.classList.remove("scan-highlight"), 1600);
+    }
+  };
+
   return (
-    <div className="page-frame detail-page">
-      <Link className="back-link" to="/cases">← Back to My Cases</Link>
-      <header className="case-hero"><div><p className="kicker">Recovery case / {caseNumber(data.id)}</p><h1>{data.vehicle.plate}</h1>
-        <p>{data.vehicle.make} {data.vehicle.model} <span aria-hidden="true">·</span> <code>{data.vehicle.vin}</code></p></div><StatusBadge status={data.status} /></header>
-      <dl className="case-facts">
-        <div><dt>Assigned to</dt><dd>{data.assignee ? `${data.assignee.first_name} ${data.assignee.last_name}` : "Unassigned"}</dd></div>
-        <div><dt>Case opened</dt><dd><DateText value={data.created_at} /></dd></div>
-        <div><dt>Last updated</dt><dd><DateText value={data.updated_at} /></dd></div>
-        <div><dt>Recorded sightings</dt><dd>{data.scans.length}</dd></div>
-      </dl>
+    <div className="detail-page-container">
+      {/* Streamlined Top Section: Back navigation, Plate title & metadata, Compact Stat Pills */}
+      <header className="detail-top-section">
+        <div className="detail-top-nav">
+          <Link className="back-link" to="/cases">
+            <ArrowLeft size={14} weight="bold" />
+            <span>Back to My Cases</span>
+          </Link>
+          <div className="detail-case-badge">
+            <span className="kicker-label">RECOVERY CASE</span>
+            <strong className="kicker-code">{caseNumber(data.id)}</strong>
+          </div>
+        </div>
 
-      <CaseMap
-        scans={data.scans}
-        demoImage={demoImage}
-        vehiclePlate={data.vehicle.plate}
-      />
+        <div className="detail-hero-bar">
+          <div className="detail-vehicle-summary">
+            <h1 className="vehicle-plate-title">{data.vehicle.plate}</h1>
+            <div className="vehicle-sub-info">
+              <span className="vehicle-model">{data.vehicle.make} {data.vehicle.model}</span>
+              <span className="sep-dot" aria-hidden="true">·</span>
+              <code className="vehicle-vin-code">{data.vehicle.vin}</code>
+            </div>
+          </div>
+          <StatusBadge status={data.status} />
+        </div>
 
-      <div className="detail-layout">
-        <section className="scan-history" aria-labelledby="scan-history-title">
-          <header><div><p className="kicker">Location intelligence</p><h2 id="scan-history-title">Scan history</h2></div><span>Newest first</span></header>
-          {data.scans.length ? <ol>{data.scans.map((scan, index) => <ScanEntry scan={scan} index={index} demoImage={demoImage} key={scan.id} />)}</ol>
-            : <div className="inline-empty"><strong>No scan history yet</strong><p>New sightings for this vehicle will appear here.</p></div>}
+        {/* Compact stats strip replacing the oversized 4 boxes */}
+        <div className="detail-stats-bar">
+          <div className="stat-cell">
+            <span className="stat-label"><User size={13} weight="bold" /> Assigned to</span>
+            <strong className="stat-val">{data.assignee ? `${data.assignee.first_name} ${data.assignee.last_name}` : "Unassigned"}</strong>
+          </div>
+          <div className="stat-cell">
+            <span className="stat-label"><CalendarBlank size={13} weight="bold" /> Case opened</span>
+            <strong className="stat-val"><DateText value={data.created_at} /></strong>
+          </div>
+          <div className="stat-cell">
+            <span className="stat-label"><Clock size={13} weight="bold" /> Last updated</span>
+            <strong className="stat-val"><DateText value={data.updated_at} /></strong>
+          </div>
+          <div className="stat-cell">
+            <span className="stat-label"><MapPin size={13} weight="bold" /> Sightings</span>
+            <strong className="stat-val">{data.scans.length} records</strong>
+          </div>
+        </div>
+      </header>
+
+      {/* 60-40 Split: Left 60% Map, Right 40% Scan History */}
+      <div className="detail-split-layout">
+        {/* 60% Map Section */}
+        <section className="detail-map-pane" ref={mapPaneRef} aria-label="Surveillance map">
+          <CaseMap
+            scans={data.scans}
+            demoImage={demoImage}
+            vehiclePlate={data.vehicle.plate}
+            onSelectScan={handleSelectScan}
+            selectedScanId={selectedScanId}
+          />
         </section>
-        <aside className="location-brief"><p className="kicker">Latest position</p>
-          {latest ? <><div className="location-thumbnail"><img src={demoImage} alt={`Vehicle sighting: ${data.vehicle.plate}`} /></div>
-            <strong className="coordinates">{latest.latitude.toFixed(5)}<br />{latest.longitude.toFixed(5)}</strong>
-            <p><DateText value={latest.scanned_at} /></p>
-            <a className="button button--dark" href={mapUrl(latest.latitude, latest.longitude)} target="_blank" rel="noreferrer">Open in maps <span aria-hidden="true">↗</span></a>
-            <p className="privacy-note">Location history may include shared-network scans. Source details stay protected across tenants.</p></>
-            : <p className="muted">No location has been recorded for this vehicle.</p>}
-        </aside>
+
+        {/* 40% Scan History Section */}
+        <section className="detail-history-pane" aria-labelledby="scan-history-title">
+          <div className="scan-history-box" style={{ height: mapPaneHeight ? `${mapPaneHeight}px` : undefined }}>
+            <header className="scan-history-header">
+              <div>
+                <h2 id="scan-history-title">Scan history</h2>
+              </div>
+              <span className="history-count-badge">Newest first · {data.scans.length}</span>
+            </header>
+            {data.scans.length ? (
+              <ol className="scan-cards-list">
+                {data.scans.map((scan, index) => (
+                  <ScanEntry
+                    scan={scan}
+                    index={index}
+                    demoImage={demoImage}
+                    key={scan.id}
+                    onLocateScan={setSelectedScanId}
+                  />
+                ))}
+              </ol>
+            ) : (
+              <div className="inline-empty">
+                <strong>No scan history yet</strong>
+                <p>New sightings for this vehicle will appear here.</p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -551,26 +866,115 @@ function mapUrl(latitude: number, longitude: number) {
   return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 }
 
-function ScanEntry({ scan, index, demoImage }: { scan: CaseScan; index: number; demoImage: string }) {
+function ScanEntry({
+  scan,
+  index,
+  demoImage,
+  onLocateScan,
+}: {
+  scan: CaseScan;
+  index: number;
+  demoImage: string;
+  onLocateScan?: (scanId: number) => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const localSource = Boolean(scan.camera || scan.agency_vehicle || scan.reported_by);
   const imageSource = scan.image_url && !scan.image_url.includes("example.invalid") ? scan.image_url : demoImage;
+  const isLatest = index === 0;
+
   return (
-    <li className="scan-entry" id={`scan-${scan.id}`}>
-      <div className="timeline-marker"><span>{String(index + 1).padStart(2, "0")}</span></div>
-      <article><header><div><strong><DateText value={scan.scanned_at} /></strong><span>Scan #{scan.id}</span></div>
-        <a href={mapUrl(scan.latitude, scan.longitude)} target="_blank" rel="noreferrer">View map ↗</a></header>
-        <div className="scan-body"><div className="scan-image">
-          {!imageFailed ? <img src={imageSource} alt={`Vehicle sighting from ${formatDate(scan.scanned_at)}`} onError={() => setImageFailed(true)} />
-            : <div className="image-fallback" role="img" aria-label="Scan image unavailable"><span aria-hidden="true">▧</span><small>Image unavailable</small></div>}
-        </div><dl className="scan-metadata">
-          <div><dt>Coordinates</dt><dd><code>{scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}</code></dd></div>
-          <div><dt>Reported by</dt><dd>{scan.reported_by ? `${scan.reported_by.first_name} ${scan.reported_by.last_name}` : "Shared network source"}</dd></div>
-          <div><dt>Camera</dt><dd>{scan.camera?.serial_number ?? "Source protected"}</dd></div>
-          <div><dt>Agency vehicle</dt><dd>{scan.agency_vehicle?.identifier ?? "Source protected"}</dd></div>
-        </dl></div>
-        {!localSource ? <p className="source-note">This sighting came from the shared network. Reporter and equipment details are hidden.</p> : null}
-      </article>
+    <li className="scan-entry-card" id={`scan-${scan.id}`}>
+      <header className="scan-entry-header">
+        <div className="scan-entry-title">
+          <span className={`scan-seq-badge ${isLatest ? "scan-seq-badge--latest" : ""}`}>
+            #{String(index + 1).padStart(2, "0")}
+          </span>
+          <strong><DateText value={scan.scanned_at} /></strong>
+          <span className="scan-id-tag">Scan #{scan.id}</span>
+        </div>
+        <div className="scan-entry-actions">
+          <button
+            type="button"
+            className="scan-entry-locate-btn"
+            onClick={() => onLocateScan?.(scan.id)}
+            title="Locate on surveillance map"
+          >
+            <Crosshair size={12} weight="bold" />
+            <span>Map</span>
+          </button>
+          <a
+            className="scan-entry-map-link"
+            href={mapUrl(scan.latitude, scan.longitude)}
+            target="_blank"
+            rel="noreferrer"
+            title="Open in Google Maps"
+          >
+            <ArrowUpRight size={11} weight="bold" />
+          </a>
+        </div>
+      </header>
+
+      <div className="scan-entry-body">
+        <div className="scan-entry-thumb">
+          {!imageFailed ? (
+            <img
+              src={imageSource}
+              alt={`Vehicle sighting from ${formatDate(scan.scanned_at)}`}
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <div className="image-fallback-compact" role="img" aria-label="Scan image unavailable">
+              <span>▧</span>
+            </div>
+          )}
+        </div>
+
+        <div className="scan-entry-meta">
+          <div className="scan-meta-cell">
+            <span className="scan-meta-key"><MapPin size={11} weight="bold" /> Coordinates</span>
+            <code
+              className="scan-meta-val"
+              title={`${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)}`}
+            >
+              {scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}
+            </code>
+          </div>
+          <div className="scan-meta-cell">
+            <span className="scan-meta-key"><Camera size={11} weight="bold" /> Camera serial</span>
+            <span
+              className="scan-meta-val"
+              title={scan.camera?.serial_number ?? "Source protected"}
+            >
+              {scan.camera?.serial_number ?? "Source protected"}
+            </span>
+          </div>
+          <div className="scan-meta-cell">
+            <span className="scan-meta-key"><Car size={11} weight="bold" /> Agency vehicle</span>
+            <span
+              className="scan-meta-val"
+              title={scan.agency_vehicle?.identifier ?? "Source protected"}
+            >
+              {scan.agency_vehicle?.identifier ?? "Source protected"}
+            </span>
+          </div>
+          <div className="scan-meta-cell">
+            <span className="scan-meta-key"><User size={11} weight="bold" /> Reported by</span>
+            <span
+              className="scan-meta-val"
+              title={scan.reported_by ? `${scan.reported_by.first_name} ${scan.reported_by.last_name}` : "Shared network"}
+            >
+              {scan.reported_by ? `${scan.reported_by.first_name} ${scan.reported_by.last_name}` : "Shared network"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {!localSource ? (
+        <footer className="scan-entry-footer">
+          <ShieldCheck size={12} weight="bold" />
+          <span>Shared network observation (source details protected)</span>
+        </footer>
+      ) : null}
     </li>
   );
 }
@@ -580,11 +984,11 @@ function ProfilePage() {
   if (!user) return null;
   return (
     <div className="page-frame profile-page">
-      <PageHeader eyebrow="Authenticated profile" title={`Welcome, ${user.firstName}`} description="Your identity and tenant context are active for this session." />
+      <PageHeader eyebrow="Authenticated profile" title={`Welcome, ${user.firstName}`} description="Your identity and organization credentials are active for this session." />
       <section className="identity-card" aria-labelledby="identity-title"><header><h2 id="identity-title">Current identity</h2></header>
         <dl className="identity-grid"><div><dt>Name</dt><dd>{user.firstName} {user.lastName}</dd></div>
           <div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Role</dt><dd><span className="role-badge">{user.role}</span></dd></div>
-          <div><dt>Tenant</dt><dd>{user.tenant.name}</dd></div></dl></section>
+          <div><dt>Organization</dt><dd>{user.tenant.name}</dd></div></dl></section>
       {user.role === "AGENT" ? <aside className="agent-note"><span aria-hidden="true">FIELD ACCESS</span>
         <p>Agent accounts submit field scans only. Case records remain read-only and are managed by staff.</p></aside> : null}
     </div>
