@@ -70,18 +70,38 @@ with the backend still reported as available.
 
 ## Scan ingestion
 
-Authenticated tenant agents can submit a registry-backed sighting to
-`POST /api/v1/scans`. `camera_id` is the numeric `cameras.id`; the camera and
-JWT user must belong to the same tenant. VINs are trimmed and uppercased, and
-plates are uppercased with spaces and hyphens removed before registry lookup.
+Simulated cameras can submit a registry-backed sighting to
+`POST /api/v1/scans` without a user login. `camera_id` is the numeric
+`cameras.id`, and the tenant is resolved from that camera's agency vehicle.
+VINs are trimmed and uppercased, and plates are uppercased with spaces and
+hyphens removed before registry lookup.
 
 Every accepted sighting creates a scan. The response reports whether the
 vehicle already has an open case, is ineligible, or received a new
-`PENDING_CLAIM` case. The database permits only one `PENDING_CLAIM` or `ACTIVE`
-case per vehicle while allowing historical `CLOSED` cases.
+`PENDING_CLAIM` case. The database permits one global pending case per vehicle
+and one active case per tenant and vehicle, while allowing historical closed
+cases.
 
 `POST /mock/partner-network/eligibility` exposes the local partner stub. A VIN
 is eligible only when its final character is an even digit.
+
+## Recovery cases
+
+Authenticated staff and administrators can read their tenant's active and
+closed cases through `GET /api/v1/cases` and `GET /api/v1/cases/{case_id}`.
+Only staff can browse the global pending pool at
+`GET /api/v1/cases/claimable` and atomically claim a pending case with
+`POST /api/v1/cases/{case_id}/claim`.
+
+The React workspace provides responsive My Cases, Claimable Cases, and Case
+Detail views. Staff can confirm a claim from the shared pool and move directly
+into its scan history; administrators retain tenant-scoped read access, while
+agents remain outside the case-management workspace.
+
+The list endpoints support exact normalized VIN/plate search and offset
+pagination with a default limit of 25 and maximum of 50. Case detail includes
+the vehicle's scan trail; source identities are redacted for scans originating
+from another tenant.
 
 ## Reset development data
 

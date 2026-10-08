@@ -73,8 +73,9 @@ async def seed_tenants(connection: asyncpg.Connection) -> list[int]:
 
 async def seed_users(
     connection: asyncpg.Connection, tenant_ids: list[int]
-) -> tuple[list[int], dict[int, list[int]]]:
+) -> tuple[list[int], dict[int, int], dict[int, list[int]]]:
     user_ids = []
+    staff_ids_by_tenant: dict[int, int] = {}
     agent_ids_by_tenant: dict[int, list[int]] = {}
     password_hash = PasswordHasher().hash(DEMO_PASSWORD)
 
@@ -103,13 +104,15 @@ async def seed_users(
                 role,
             )
             user_ids.append(user_id)
+            if role == "STAFF":
+                staff_ids_by_tenant[tenant_id] = user_id
             if role == "AGENT":
                 agent_ids_by_tenant[tenant_id].append(user_id)
 
     await connection.execute(
         "ALTER TABLE app_users ALTER COLUMN password_hash SET NOT NULL"
     )
-    return user_ids, agent_ids_by_tenant
+    return user_ids, staff_ids_by_tenant, agent_ids_by_tenant
 
 
 async def seed_agency_fleet(
@@ -171,7 +174,7 @@ async def seed_target_vehicles(connection: asyncpg.Connection) -> list[int]:
 async def seed_cases(
     connection: asyncpg.Connection,
     tenant_ids: list[int],
-    agent_ids_by_tenant: dict[int, list[int]],
+    staff_ids_by_tenant: dict[int, int],
     vehicle_ids: list[int],
 ) -> None:
     for vehicle_id in vehicle_ids[:8]:
@@ -182,7 +185,7 @@ async def seed_cases(
 
     for index, vehicle_id in enumerate(vehicle_ids[8:20]):
         tenant_id = tenant_ids[index % len(tenant_ids)]
-        assignee_id = agent_ids_by_tenant[tenant_id][index % 2]
+        assignee_id = staff_ids_by_tenant[tenant_id]
         await connection.execute(
             """
             INSERT INTO recovery_cases (vehicle_id, status, tenant_id, assignee_id)
@@ -195,7 +198,7 @@ async def seed_cases(
 
     for index, vehicle_id in enumerate(vehicle_ids[20:25]):
         tenant_id = tenant_ids[index % len(tenant_ids)]
-        assignee_id = agent_ids_by_tenant[tenant_id][index % 2]
+        assignee_id = staff_ids_by_tenant[tenant_id]
         await connection.execute(
             """
             INSERT INTO recovery_cases (vehicle_id, status, tenant_id, assignee_id)
@@ -311,6 +314,12 @@ async def validate_seed(connection: asyncpg.Connection) -> None:
             JOIN app_users au ON au.id = rc.assignee_id
             WHERE au.tenant_id <> rc.tenant_id
         """,
+        "case assignee is not staff": """
+            SELECT COUNT(*)
+            FROM recovery_cases rc
+            JOIN app_users au ON au.id = rc.assignee_id
+            WHERE au.role <> 'STAFF'
+        """,
         "scan reporter is not an agent": """
             SELECT COUNT(*)
             FROM scans s
@@ -422,13 +431,15 @@ async def main() -> None:
                 await apply_schema(connection)
                 await reset_data(connection)
                 tenant_ids = await seed_tenants(connection)
-                _, agent_ids_by_tenant = await seed_users(connection, tenant_ids)
+                _, staff_ids_by_tenant, agent_ids_by_tenant = await seed_users(
+                    connection, tenant_ids
+                )
                 _, camera_ids_by_tenant = await seed_agency_fleet(
                     connection, tenant_ids
                 )
                 vehicle_ids = await seed_target_vehicles(connection)
                 await seed_cases(
-                    connection, tenant_ids, agent_ids_by_tenant, vehicle_ids
+                    connection, tenant_ids, staff_ids_by_tenant, vehicle_ids
                 )
                 await seed_scans(
                     connection,

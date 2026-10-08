@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS recovery_cases (
 CREATE TABLE IF NOT EXISTS scans (
     id BIGSERIAL PRIMARY KEY,
     camera_id BIGINT NOT NULL REFERENCES cameras(id),
-    reported_by BIGINT NOT NULL REFERENCES app_users(id),
+    reported_by BIGINT REFERENCES app_users(id),
     vehicle_id BIGINT REFERENCES target_vehicles(id),
     image_url TEXT NOT NULL,
     latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
@@ -104,12 +104,23 @@ CREATE TABLE IF NOT EXISTS scans (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE scans ALTER COLUMN reported_by DROP NOT NULL;
+
 CREATE INDEX IF NOT EXISTS recovery_cases_status_idx ON recovery_cases(status);
 CREATE INDEX IF NOT EXISTS recovery_cases_tenant_id_idx ON recovery_cases(tenant_id);
 CREATE INDEX IF NOT EXISTS recovery_cases_vehicle_id_idx ON recovery_cases(vehicle_id);
-CREATE UNIQUE INDEX IF NOT EXISTS recovery_cases_one_open_vehicle_idx
+DROP INDEX IF EXISTS recovery_cases_one_open_vehicle_idx;
+CREATE UNIQUE INDEX IF NOT EXISTS recovery_cases_one_pending_vehicle_idx
     ON recovery_cases(vehicle_id)
-    WHERE status IN ('PENDING_CLAIM', 'ACTIVE');
+    WHERE status = 'PENDING_CLAIM';
+CREATE UNIQUE INDEX IF NOT EXISTS recovery_cases_one_active_tenant_vehicle_idx
+    ON recovery_cases(tenant_id, vehicle_id)
+    WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS recovery_cases_tenant_updated_idx
+    ON recovery_cases(tenant_id, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS recovery_cases_pending_created_idx
+    ON recovery_cases(created_at, id)
+    WHERE status = 'PENDING_CLAIM';
 
 CREATE INDEX IF NOT EXISTS scans_vehicle_id_idx ON scans(vehicle_id);
 CREATE INDEX IF NOT EXISTS scans_camera_id_idx ON scans(camera_id);

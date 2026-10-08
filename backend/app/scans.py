@@ -1,12 +1,10 @@
 import re
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator
-
-from app.auth import UserProfile, current_user
 
 router = APIRouter(tags=["scans"])
 
@@ -137,7 +135,7 @@ async def _resolve_vehicle(
     return vehicles[0]
 
 
-async def _find_open_case(
+async def _find_pending_case(
     connection: asyncpg.Connection, vehicle_id: int
 ) -> asyncpg.Record | None:
     return await connection.fetchrow(
@@ -145,7 +143,7 @@ async def _find_open_case(
         SELECT id, status, tenant_id
         FROM recovery_cases
         WHERE vehicle_id = $1
-          AND status IN ('PENDING_CLAIM', 'ACTIVE')
+          AND status = 'PENDING_CLAIM'
         ORDER BY id
         LIMIT 1
         """,
@@ -154,16 +152,12 @@ async def _find_open_case(
 
 
 def _existing_case_response(
-    *, scan_id: int, vehicle_id: int, tenant_id: int, recovery_case: asyncpg.Record
+    *, scan_id: int, vehicle_id: int, recovery_case: asyncpg.Record
 ) -> ScanIngestionResponse:
-    belongs_to_tenant = (
-        recovery_case["status"] == "ACTIVE"
-        and recovery_case["tenant_id"] == tenant_id
-    )
     return ScanIngestionResponse(
         scan_id=scan_id,
         vehicle_id=vehicle_id,
-        outcome="EXISTING_CASE" if belongs_to_tenant else "OPEN_CASE_EXISTS",
+        outcome="EXISTING_CASE",
         case_id=recovery_case["id"],
         eligible=None,
     )
@@ -177,26 +171,11 @@ def _existing_case_response(
 async def ingest_scan(
     payload: ScanIngestionRequest,
     request: Request,
-    user: Annotated[UserProfile, Depends(current_user)],
 ) -> ScanIngestionResponse:
-    if user.role != "AGENT":
-        raise _error(
-            status.HTTP_403_FORBIDDEN,
-            "AGENT_ROLE_REQUIRED",
-            "Only agents may report scans",
-        )
-
     pool: asyncpg.Pool = request.app.state.db_pool
     async with pool.acquire() as connection:
         async with connection.transaction():
             camera = await _resolve_camera(connection, payload.camera_id)
-            if camera["tenant_id"] != user.tenant.id:
-                raise _error(
-                    status.HTTP_403_FORBIDDEN,
-                    "CAMERA_TENANT_MISMATCH",
-                    "The camera does not belong to the authenticated user's tenant",
-                )
-
             vehicle = await _resolve_vehicle(connection, payload.vin, payload.plate)
             scan_id = await connection.fetchval(
                 """
@@ -208,20 +187,31 @@ async def ingest_scan(
                 RETURNING id
                 """,
                 payload.camera_id,
-                user.id,
+                None,
                 vehicle["id"],
                 str(payload.image_url),
                 payload.latitude,
                 payload.longitude,
                 payload.scanned_at,
             )
-            recovery_case = await _find_open_case(connection, vehicle["id"])
+            recovery_case = await connection.fetchrow(
+                """
+                SELECT id, status, tenant_id
+                FROM recovery_cases
+                WHERE vehicle_id = $1
+                  AND tenant_id = $2
+                  AND status = 'ACTIVE'
+                ORDER BY id
+                LIMIT 1
+                """,
+                vehicle["id"],
+                camera["tenant_id"],
+            )
 
     if recovery_case is not None:
         return _existing_case_response(
             scan_id=scan_id,
             vehicle_id=vehicle["id"],
-            tenant_id=camera["tenant_id"],
             recovery_case=recovery_case,
         )
 
@@ -242,25 +232,27 @@ async def ingest_scan(
                 INSERT INTO recovery_cases (vehicle_id, status, tenant_id, assignee_id)
                 VALUES ($1, 'PENDING_CLAIM', NULL, NULL)
                 ON CONFLICT (vehicle_id)
-                    WHERE status IN ('PENDING_CLAIM', 'ACTIVE')
+                    WHERE status = 'PENDING_CLAIM'
                 DO NOTHING
                 RETURNING id
                 """,
                 vehicle["id"],
             )
             if case_id is None:
-                recovery_case = await _find_open_case(connection, vehicle["id"])
+                recovery_case = await _find_pending_case(connection, vehicle["id"])
                 if recovery_case is None:
-                    raise RuntimeError("Open-case conflict occurred without an open case")
+                    raise RuntimeError(
+                        "Pending-case conflict occurred without a pending case"
+                    )
 
     if case_id is None:
-        response = _existing_case_response(
+        return ScanIngestionResponse(
             scan_id=scan_id,
             vehicle_id=vehicle["id"],
-            tenant_id=camera["tenant_id"],
-            recovery_case=recovery_case,
+            outcome="OPEN_CASE_EXISTS",
+            case_id=recovery_case["id"],
+            eligible=True,
         )
-        return response.model_copy(update={"eligible": True})
 
     return ScanIngestionResponse(
         scan_id=scan_id,

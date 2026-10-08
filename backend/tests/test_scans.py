@@ -1,10 +1,8 @@
 import unittest
 from types import SimpleNamespace
 
-from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.auth import TenantProfile, UserProfile
 from app.scans import (
     EligibilityRequest,
     ScanIngestionRequest,
@@ -24,10 +22,12 @@ class FakeTransaction:
 
 
 class FakeConnection:
-    def __init__(self, *, open_case=None, inserted_case_id=None):
-        self.open_case = open_case
+    def __init__(self, *, active_case=None, pending_case=None, inserted_case_id=None):
+        self.active_case = active_case
+        self.pending_case = pending_case
         self.inserted_case_id = inserted_case_id
         self.scan_inserted = False
+        self.scan_reported_by = object()
 
     def transaction(self):
         return FakeTransaction()
@@ -36,7 +36,10 @@ class FakeConnection:
         if "FROM cameras" in query:
             return {"id": args[0], "tenant_id": 10}
         if "FROM recovery_cases" in query:
-            return self.open_case
+            if "status = 'ACTIVE'" in query:
+                return self.active_case
+            if "status = 'PENDING_CLAIM'" in query:
+                return self.pending_case
         raise AssertionError(f"Unexpected fetchrow query: {query}")
 
     async def fetch(self, query, *args):
@@ -47,6 +50,7 @@ class FakeConnection:
     async def fetchval(self, query, *args):
         if "INSERT INTO scans" in query:
             self.scan_inserted = True
+            self.scan_reported_by = args[1]
             return 30
         if "INSERT INTO recovery_cases" in query:
             return self.inserted_case_id
@@ -76,17 +80,6 @@ class FakePool:
 
 def request_for(pool):
     return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=pool)))
-
-
-def agent(*, role="AGENT", tenant_id=10):
-    return UserProfile(
-        id=5,
-        firstName="Test",
-        lastName="Agent",
-        email="agent@example.test",
-        role=role,
-        tenant=TenantProfile(id=tenant_id, name="Test Tenant"),
-    )
 
 
 def scan_payload(*, vin="1FTFW1E51NFA12344"):
@@ -131,30 +124,16 @@ class NormalizationAndEligibilityTests(unittest.TestCase):
 class ScanWorkflowTests(unittest.IsolatedAsyncioTestCase):
     async def test_existing_same_tenant_active_case_does_not_create_case(self):
         connection = FakeConnection(
-            open_case={"id": 40, "status": "ACTIVE", "tenant_id": 10}
+            active_case={"id": 40, "status": "ACTIVE", "tenant_id": 10}
         )
 
-        response = await ingest_scan(
-            scan_payload(), request_for(FakePool(connection)), agent()
-        )
+        response = await ingest_scan(scan_payload(), request_for(FakePool(connection)))
 
         self.assertTrue(connection.scan_inserted)
+        self.assertIsNone(connection.scan_reported_by)
         self.assertEqual(response.outcome, "EXISTING_CASE")
         self.assertEqual(response.case_id, 40)
         self.assertIsNone(response.eligible)
-
-    async def test_foreign_open_case_preserves_scan_without_duplicate_case(self):
-        connection = FakeConnection(
-            open_case={"id": 41, "status": "ACTIVE", "tenant_id": 11}
-        )
-
-        response = await ingest_scan(
-            scan_payload(), request_for(FakePool(connection)), agent()
-        )
-
-        self.assertTrue(connection.scan_inserted)
-        self.assertEqual(response.outcome, "OPEN_CASE_EXISTS")
-        self.assertEqual(response.case_id, 41)
 
     async def test_ineligible_vehicle_preserves_scan_without_case(self):
         connection = FakeConnection()
@@ -162,7 +141,6 @@ class ScanWorkflowTests(unittest.IsolatedAsyncioTestCase):
         response = await ingest_scan(
             scan_payload(vin="1FTFW1E51NFA12345"),
             request_for(FakePool(connection)),
-            agent(),
         )
 
         self.assertTrue(connection.scan_inserted)
@@ -177,7 +155,6 @@ class ScanWorkflowTests(unittest.IsolatedAsyncioTestCase):
         response = await ingest_scan(
             scan_payload(),
             request_for(FakePool(scan_connection, case_connection)),
-            agent(),
         )
 
         self.assertTrue(scan_connection.scan_inserted)
@@ -185,25 +162,15 @@ class ScanWorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.case_id, 42)
         self.assertTrue(response.eligible)
 
-    async def test_non_agent_is_rejected_before_database_access(self):
-        with self.assertRaises(HTTPException) as raised:
-            await ingest_scan(
-                scan_payload(), request_for(FakePool()), agent(role="STAFF")
-            )
-
-        self.assertEqual(raised.exception.status_code, 403)
-        self.assertEqual(raised.exception.detail["code"], "AGENT_ROLE_REQUIRED")
-
     async def test_concurrent_case_winner_is_returned_without_duplicate(self):
         scan_connection = FakeConnection()
         case_connection = FakeConnection(
-            open_case={"id": 43, "status": "PENDING_CLAIM", "tenant_id": None}
+            pending_case={"id": 43, "status": "PENDING_CLAIM", "tenant_id": None}
         )
 
         response = await ingest_scan(
             scan_payload(),
             request_for(FakePool(scan_connection, case_connection)),
-            agent(),
         )
 
         self.assertEqual(response.outcome, "OPEN_CASE_EXISTS")
