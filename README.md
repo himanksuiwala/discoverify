@@ -68,6 +68,21 @@ The browser never sends a user or tenant ID to identify the current user.
 database are available. If PostgreSQL cannot be reached, it returns HTTP 503
 with the backend still reported as available.
 
+## Scan ingestion
+
+Authenticated tenant agents can submit a registry-backed sighting to
+`POST /api/v1/scans`. `camera_id` is the numeric `cameras.id`; the camera and
+JWT user must belong to the same tenant. VINs are trimmed and uppercased, and
+plates are uppercased with spaces and hyphens removed before registry lookup.
+
+Every accepted sighting creates a scan. The response reports whether the
+vehicle already has an open case, is ineligible, or received a new
+`PENDING_CLAIM` case. The database permits only one `PENDING_CLAIM` or `ACTIVE`
+case per vehicle while allowing historical `CLOSED` cases.
+
+`POST /mock/partner-network/eligibility` exposes the local partner stub. A VIN
+is eligible only when its final character is an even digit.
+
 ## Reset development data
 
 From `backend/`, run:

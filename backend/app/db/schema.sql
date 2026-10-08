@@ -41,11 +41,41 @@ CREATE TABLE IF NOT EXISTS target_vehicles (
     id BIGSERIAL PRIMARY KEY,
     vin TEXT NOT NULL UNIQUE,
     plate TEXT NOT NULL,
+    CONSTRAINT target_vehicles_vin_canonical CHECK (vin = UPPER(BTRIM(vin))),
+    CONSTRAINT target_vehicles_plate_canonical CHECK (
+        plate = UPPER(REGEXP_REPLACE(plate, '[[:space:]-]+', '', 'g'))
+    ),
     make TEXT NOT NULL,
     model TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'target_vehicles_vin_canonical'
+          AND conrelid = 'target_vehicles'::regclass
+    ) THEN
+        ALTER TABLE target_vehicles
+            ADD CONSTRAINT target_vehicles_vin_canonical
+            CHECK (vin = UPPER(BTRIM(vin)));
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'target_vehicles_plate_canonical'
+          AND conrelid = 'target_vehicles'::regclass
+    ) THEN
+        ALTER TABLE target_vehicles
+            ADD CONSTRAINT target_vehicles_plate_canonical
+            CHECK (
+                plate = UPPER(REGEXP_REPLACE(plate, '[[:space:]-]+', '', 'g'))
+            );
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS recovery_cases (
     id BIGSERIAL PRIMARY KEY,
@@ -77,6 +107,9 @@ CREATE TABLE IF NOT EXISTS scans (
 CREATE INDEX IF NOT EXISTS recovery_cases_status_idx ON recovery_cases(status);
 CREATE INDEX IF NOT EXISTS recovery_cases_tenant_id_idx ON recovery_cases(tenant_id);
 CREATE INDEX IF NOT EXISTS recovery_cases_vehicle_id_idx ON recovery_cases(vehicle_id);
+CREATE UNIQUE INDEX IF NOT EXISTS recovery_cases_one_open_vehicle_idx
+    ON recovery_cases(vehicle_id)
+    WHERE status IN ('PENDING_CLAIM', 'ACTIVE');
 
 CREATE INDEX IF NOT EXISTS scans_vehicle_id_idx ON scans(vehicle_id);
 CREATE INDEX IF NOT EXISTS scans_camera_id_idx ON scans(camera_id);
@@ -86,3 +119,7 @@ CREATE INDEX IF NOT EXISTS scans_vehicle_id_scanned_at_idx ON scans(vehicle_id, 
 CREATE INDEX IF NOT EXISTS app_users_tenant_id_idx ON app_users(tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS app_users_email_lower_idx ON app_users(LOWER(email));
 CREATE INDEX IF NOT EXISTS agency_vehicles_tenant_id_idx ON agency_vehicles(tenant_id);
+CREATE UNIQUE INDEX IF NOT EXISTS target_vehicles_vin_normalized_idx
+    ON target_vehicles(UPPER(BTRIM(vin)));
+CREATE UNIQUE INDEX IF NOT EXISTS target_vehicles_plate_normalized_idx
+    ON target_vehicles(UPPER(REGEXP_REPLACE(plate, '[[:space:]-]+', '', 'g')));

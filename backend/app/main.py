@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.auth import router as auth_router
 from app.auth import validate_auth_configuration
 from app.db.connection import close_pool, create_pool
+from app.scans import router as scans_router
 
 
 @asynccontextmanager
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Archetype API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(scans_router)
 
 
 @app.get("/api/health", tags=["health"])
