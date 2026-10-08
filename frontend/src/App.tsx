@@ -31,6 +31,7 @@ import type {
   CaseSummary,
   UserProfile,
 } from "./types";
+import { CaseMap } from "./CaseMap";
 
 import demoImage1 from "../assets/image_1.png";
 import demoImage2 from "../assets/image_2.png";
@@ -520,6 +521,13 @@ function CaseDetailPage() {
         <div><dt>Last updated</dt><dd><DateText value={data.updated_at} /></dd></div>
         <div><dt>Recorded sightings</dt><dd>{data.scans.length}</dd></div>
       </dl>
+
+      <CaseMap
+        scans={data.scans}
+        demoImage={demoImage}
+        vehiclePlate={data.vehicle.plate}
+      />
+
       <div className="detail-layout">
         <section className="scan-history" aria-labelledby="scan-history-title">
           <header><div><p className="kicker">Location intelligence</p><h2 id="scan-history-title">Scan history</h2></div><span>Newest first</span></header>
@@ -548,7 +556,7 @@ function ScanEntry({ scan, index, demoImage }: { scan: CaseScan; index: number; 
   const localSource = Boolean(scan.camera || scan.agency_vehicle || scan.reported_by);
   const imageSource = scan.image_url && !scan.image_url.includes("example.invalid") ? scan.image_url : demoImage;
   return (
-    <li className="scan-entry">
+    <li className="scan-entry" id={`scan-${scan.id}`}>
       <div className="timeline-marker"><span>{String(index + 1).padStart(2, "0")}</span></div>
       <article><header><div><strong><DateText value={scan.scanned_at} /></strong><span>Scan #{scan.id}</span></div>
         <a href={mapUrl(scan.latitude, scan.longitude)} target="_blank" rel="noreferrer">View map ↗</a></header>
