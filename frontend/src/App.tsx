@@ -32,6 +32,17 @@ import type {
   UserProfile,
 } from "./types";
 
+import demoImage1 from "../assets/image_1.png";
+import demoImage2 from "../assets/image_2.png";
+import demoImage3 from "../assets/image_3.png";
+import demoImage4 from "../assets/image_4.png";
+
+const DEMO_CAR_IMAGES = [demoImage1, demoImage2, demoImage3, demoImage4];
+
+function getCaseDemoImage(caseId: number): string {
+  return DEMO_CAR_IMAGES[Math.abs(caseId) % DEMO_CAR_IMAGES.length];
+}
+
 type AuthStatus = "loading" | "authenticated" | "anonymous";
 type AuthContextValue = {
   status: AuthStatus;
@@ -496,6 +507,7 @@ function CaseDetailPage() {
   if (error || !data) return <div className="page-frame"><Link className="back-link" to="/cases">← Back to cases</Link>
     <ErrorPanel message={error || "The case was not found"} onRetry={() => setReloadKey((value) => value + 1)} /></div>;
 
+  const demoImage = getCaseDemoImage(data.id);
   const latest = data.scans[0] ?? null;
   return (
     <div className="page-frame detail-page">
@@ -511,11 +523,12 @@ function CaseDetailPage() {
       <div className="detail-layout">
         <section className="scan-history" aria-labelledby="scan-history-title">
           <header><div><p className="kicker">Location intelligence</p><h2 id="scan-history-title">Scan history</h2></div><span>Newest first</span></header>
-          {data.scans.length ? <ol>{data.scans.map((scan, index) => <ScanEntry scan={scan} index={index} key={scan.id} />)}</ol>
+          {data.scans.length ? <ol>{data.scans.map((scan, index) => <ScanEntry scan={scan} index={index} demoImage={demoImage} key={scan.id} />)}</ol>
             : <div className="inline-empty"><strong>No scan history yet</strong><p>New sightings for this vehicle will appear here.</p></div>}
         </section>
         <aside className="location-brief"><p className="kicker">Latest position</p>
-          {latest ? <><strong className="coordinates">{latest.latitude.toFixed(5)}<br />{latest.longitude.toFixed(5)}</strong>
+          {latest ? <><div className="location-thumbnail"><img src={demoImage} alt={`Vehicle sighting: ${data.vehicle.plate}`} /></div>
+            <strong className="coordinates">{latest.latitude.toFixed(5)}<br />{latest.longitude.toFixed(5)}</strong>
             <p><DateText value={latest.scanned_at} /></p>
             <a className="button button--dark" href={mapUrl(latest.latitude, latest.longitude)} target="_blank" rel="noreferrer">Open in maps <span aria-hidden="true">↗</span></a>
             <p className="privacy-note">Location history may include shared-network scans. Source details stay protected across tenants.</p></>
@@ -530,16 +543,17 @@ function mapUrl(latitude: number, longitude: number) {
   return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 }
 
-function ScanEntry({ scan, index }: { scan: CaseScan; index: number }) {
+function ScanEntry({ scan, index, demoImage }: { scan: CaseScan; index: number; demoImage: string }) {
   const [imageFailed, setImageFailed] = useState(false);
   const localSource = Boolean(scan.camera || scan.agency_vehicle || scan.reported_by);
+  const imageSource = scan.image_url && !scan.image_url.includes("example.invalid") ? scan.image_url : demoImage;
   return (
     <li className="scan-entry">
       <div className="timeline-marker"><span>{String(index + 1).padStart(2, "0")}</span></div>
       <article><header><div><strong><DateText value={scan.scanned_at} /></strong><span>Scan #{scan.id}</span></div>
         <a href={mapUrl(scan.latitude, scan.longitude)} target="_blank" rel="noreferrer">View map ↗</a></header>
         <div className="scan-body"><div className="scan-image">
-          {!imageFailed ? <img src={scan.image_url} alt={`Vehicle sighting from ${formatDate(scan.scanned_at)}`} onError={() => setImageFailed(true)} />
+          {!imageFailed ? <img src={imageSource} alt={`Vehicle sighting from ${formatDate(scan.scanned_at)}`} onError={() => setImageFailed(true)} />
             : <div className="image-fallback" role="img" aria-label="Scan image unavailable"><span aria-hidden="true">▧</span><small>Image unavailable</small></div>}
         </div><dl className="scan-metadata">
           <div><dt>Coordinates</dt><dd><code>{scan.latitude.toFixed(5)}, {scan.longitude.toFixed(5)}</code></dd></div>
