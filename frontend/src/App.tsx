@@ -153,9 +153,9 @@ function useToast() {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link className={`brand ${compact ? "brand--compact" : ""}`} to="/" aria-label="Discovery File home">
+    <Link className={`brand ${compact ? "brand--compact" : ""}`} to="/" aria-label="Discoverify home">
       <span className="brand-mark" aria-hidden="true">DF</span>
-      <span className="brand-copy"><strong>Discovery File</strong>{!compact ? <small>Recovery operations</small> : null}</span>
+      <span className="brand-copy"><strong>Discoverify</strong>{!compact ? <small>Recovery operations</small> : null}</span>
     </Link>
   );
 }
