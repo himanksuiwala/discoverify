@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import os
 import random
@@ -31,9 +32,9 @@ MAKES_AND_MODELS = (
     ("Kia", "Sportage"),
 )
 BASE_LOCATIONS = (
-    (28.4595, 77.0266),
-    (12.9716, 77.5946),
-    (19.0760, 72.8777),
+    (12.9716, 77.5946),  # Tenant 1: Bengaluru, Karnataka (matches KA vehicle license plates)
+    (28.4595, 77.0266),  # Tenant 2: Gurgaon / Delhi NCR
+    (19.0760, 72.8777),  # Tenant 3: Mumbai
 )
 START_DATE = datetime(2026, 1, 1, tzinfo=UTC)
 END_DATE = datetime(2026, 10, 1, tzinfo=UTC)
@@ -41,6 +42,22 @@ END_DATE = datetime(2026, 10, 1, tzinfo=UTC)
 
 async def apply_schema(connection: asyncpg.Connection) -> None:
     await connection.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+async def drop_all_tables(connection: asyncpg.Connection) -> None:
+    await connection.execute(
+        """
+        DROP TABLE IF EXISTS
+            scans,
+            recovery_cases,
+            cameras,
+            agency_vehicles,
+            app_users,
+            target_vehicles,
+            tenants
+        CASCADE;
+        """
+    )
 
 
 async def reset_data(connection: asyncpg.Connection) -> None:
@@ -61,23 +78,27 @@ async def reset_data(connection: asyncpg.Connection) -> None:
 
 async def seed_tenants(connection: asyncpg.Connection) -> list[int]:
     tenant_ids = []
-    for _ in range(3):
+    locations = ["Bengaluru", "Gurgaon", "Mumbai"]
+    names = ["Apex Vehicle Recovery", "North District Recovery", "Metro Shield Operations"]
+    for i in range(3):
         tenant_id = await connection.fetchval(
             "INSERT INTO tenants (name, location) VALUES ($1, $2) RETURNING id",
-            f"{fake.company()} Recovery",
-            fake.city(),
+            names[i],
+            locations[i],
         )
         tenant_ids.append(tenant_id)
     return tenant_ids
 
 
 async def seed_users(
-    connection: asyncpg.Connection, tenant_ids: list[int]
+    connection: asyncpg.Connection,
+    tenant_ids: list[int],
+    password: str = DEMO_PASSWORD,
 ) -> tuple[list[int], dict[int, int], dict[int, list[int]]]:
     user_ids = []
     staff_ids_by_tenant: dict[int, int] = {}
     agent_ids_by_tenant: dict[int, list[int]] = {}
-    password_hash = PasswordHasher().hash(DEMO_PASSWORD)
+    password_hash = PasswordHasher().hash(password)
 
     for tenant_index, tenant_id in enumerate(tenant_ids, start=1):
         agent_ids_by_tenant[tenant_id] = []
@@ -212,15 +233,24 @@ async def seed_cases(
 
 async def insert_scan(
     connection: asyncpg.Connection,
-    tenant_index: int,
+    reporting_tenant_index: int,
     tenant_ids: list[int],
     agent_ids_by_tenant: dict[int, list[int]],
     camera_ids_by_tenant: dict[int, list[int]],
     vehicle_id: int | None,
     scan_number: int,
+    base_coords: tuple[float, float] | None = None,
+    scanned_at: datetime | None = None,
 ) -> None:
-    tenant_id = tenant_ids[tenant_index]
-    base_latitude, base_longitude = BASE_LOCATIONS[tenant_index]
+    tenant_id = tenant_ids[reporting_tenant_index]
+    if base_coords is None:
+        base_latitude, base_longitude = BASE_LOCATIONS[reporting_tenant_index]
+    else:
+        base_latitude, base_longitude = base_coords
+
+    if scanned_at is None:
+        scanned_at = fake.date_time_between(START_DATE, END_DATE)
+
     await connection.execute(
         """
         INSERT INTO scans (
@@ -233,9 +263,9 @@ async def insert_scan(
         random.choice(agent_ids_by_tenant[tenant_id]),
         vehicle_id,
         f"https://example.invalid/scans/{scan_number:04d}.jpg",
-        base_latitude + random.uniform(-0.01, 0.01),
-        base_longitude + random.uniform(-0.01, 0.01),
-        fake.date_time_between(START_DATE, END_DATE),
+        base_latitude + random.uniform(-0.015, 0.015),
+        base_longitude + random.uniform(-0.015, 0.015),
+        scanned_at,
     )
 
 
@@ -245,23 +275,43 @@ async def seed_scans(
     agent_ids_by_tenant: dict[int, list[int]],
     camera_ids_by_tenant: dict[int, list[int]],
     vehicle_ids: list[int],
+    total_scans: int = 150,
 ) -> None:
     scan_number = 1
 
-    # An active case with a rich, geographically clustered scan trail.
-    for _ in range(8):
+    def vehicle_coords(v_idx: int) -> tuple[float, float]:
+        if v_idx < 8:
+            # Claimable cases: located in Bengaluru so when claimed by Tenant 1 they are in-territory
+            return BASE_LOCATIONS[0]
+        elif 8 <= v_idx < 20:
+            # Active cases: mapped to their respective tenant
+            t_idx = (v_idx - 8) % len(tenant_ids)
+            return BASE_LOCATIONS[t_idx]
+        elif 20 <= v_idx < 25:
+            # Closed cases
+            t_idx = (v_idx - 20) % len(tenant_ids)
+            return BASE_LOCATIONS[t_idx]
+        else:
+            return BASE_LOCATIONS[v_idx % len(tenant_ids)]
+
+    # An active case for Tenant 1 (vehicle_ids[8]) with a rich, geographically clustered scan trail.
+    v8_coords = vehicle_coords(8)
+    for i in range(8):
+        # Local cameras for most sightings, partner cameras for shared network demonstration
+        reporting_tenant = 0 if i < 6 else ((i % 2) + 1)
         await insert_scan(
             connection,
-            0,
+            reporting_tenant,
             tenant_ids,
             agent_ids_by_tenant,
             camera_ids_by_tenant,
             vehicle_ids[8],
             scan_number,
+            base_coords=v8_coords,
         )
         scan_number += 1
 
-    # An active case with deliberately sparse history.
+    # An active case with deliberately sparse history (vehicle_ids[9], Tenant 2).
     await insert_scan(
         connection,
         1,
@@ -270,10 +320,12 @@ async def seed_scans(
         camera_ids_by_tenant,
         vehicle_ids[9],
         scan_number,
+        base_coords=vehicle_coords(9),
     )
     scan_number += 1
 
-    # A target vehicle with sightings but no recovery case.
+    # A target vehicle with sightings but no recovery case (vehicle_ids[25]).
+    v25_coords = vehicle_coords(25)
     for _ in range(4):
         await insert_scan(
             connection,
@@ -283,20 +335,42 @@ async def seed_scans(
             camera_ids_by_tenant,
             vehicle_ids[25],
             scan_number,
+            base_coords=v25_coords,
         )
         scan_number += 1
 
     remaining_vehicles = vehicle_ids[:8] + vehicle_ids[10:]
-    while scan_number <= 150:
-        tenant_index = random.randrange(len(tenant_ids))
+    while scan_number <= total_scans:
+        target_v_idx = random.randrange(len(remaining_vehicles))
+        chosen_vehicle_id = remaining_vehicles[target_v_idx]
+        actual_idx = vehicle_ids.index(chosen_vehicle_id)
+        coords = vehicle_coords(actual_idx)
+
+        # Primary tenant for this vehicle
+        if actual_idx < 8:
+            primary_tenant = 0
+        elif 8 <= actual_idx < 20:
+            primary_tenant = (actual_idx - 8) % len(tenant_ids)
+        elif 20 <= actual_idx < 25:
+            primary_tenant = (actual_idx - 20) % len(tenant_ids)
+        else:
+            primary_tenant = actual_idx % len(tenant_ids)
+
+        # 75% local camera, 25% partner camera for cross-tenant visibility
+        if random.random() < 0.75:
+            rep_tenant = primary_tenant
+        else:
+            rep_tenant = random.choice([t for t in range(len(tenant_ids)) if t != primary_tenant])
+
         await insert_scan(
             connection,
-            tenant_index,
+            rep_tenant,
             tenant_ids,
             agent_ids_by_tenant,
             camera_ids_by_tenant,
-            random.choice(remaining_vehicles),
+            chosen_vehicle_id,
             scan_number,
+            base_coords=coords,
         )
         scan_number += 1
 
@@ -385,7 +459,9 @@ async def validate_seed(connection: asyncpg.Connection) -> None:
         raise RuntimeError("Seed integrity checks failed: " + ", ".join(failures))
 
 
-async def print_summary(connection: asyncpg.Connection) -> None:
+async def print_summary(
+    connection: asyncpg.Connection, password: str = DEMO_PASSWORD
+) -> None:
     counts = await connection.fetchrow(
         """
         SELECT
@@ -416,23 +492,69 @@ async def print_summary(connection: asyncpg.Connection) -> None:
     print(f"  Closed: {case_counts.get('CLOSED', 0)}")
     print(f"Scans: {counts['scans']}")
     print("\nDemo sign-in")
-    print(f"Password (all users): {DEMO_PASSWORD}")
+    print(f"Password (all users): {password}")
     for row in await connection.fetch(
         "SELECT email, role FROM app_users ORDER BY tenant_id, id"
     ):
         print(f"  {row['email']} ({row['role']})")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Seed Discovery File operational vehicle recovery database.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--fresh",
+        dest="fresh",
+        action="store_true",
+        default=True,
+        help="Drop all existing tables CASCADE and recreate schema from scratch to prevent any conflicts (default: True).",
+    )
+    parser.add_argument(
+        "--no-fresh",
+        dest="fresh",
+        action="store_false",
+        help="Do not drop tables; only truncate existing table data.",
+    )
+    parser.add_argument(
+        "--password",
+        type=str,
+        default=DEMO_PASSWORD,
+        help="Password for all generated operational user accounts.",
+    )
+    parser.add_argument(
+        "--scans",
+        type=int,
+        default=150,
+        help="Total number of surveillance scans to seed.",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress summary output.",
+    )
+    return parser.parse_args()
+
+
 async def main() -> None:
+    args = parse_args()
     pool = await create_pool()
     try:
         async with pool.acquire() as connection:
             async with connection.transaction():
-                await apply_schema(connection)
-                await reset_data(connection)
+                if args.fresh:
+                    print("Dropping existing tables and rebuilding schema from scratch...")
+                    await drop_all_tables(connection)
+                    await apply_schema(connection)
+                else:
+                    print("Resetting existing table data...")
+                    await apply_schema(connection)
+                    await reset_data(connection)
+
                 tenant_ids = await seed_tenants(connection)
                 _, staff_ids_by_tenant, agent_ids_by_tenant = await seed_users(
-                    connection, tenant_ids
+                    connection, tenant_ids, password=args.password
                 )
                 _, camera_ids_by_tenant = await seed_agency_fleet(
                     connection, tenant_ids
@@ -447,9 +569,11 @@ async def main() -> None:
                     agent_ids_by_tenant,
                     camera_ids_by_tenant,
                     vehicle_ids,
+                    total_scans=args.scans,
                 )
                 await validate_seed(connection)
-            await print_summary(connection)
+            if not args.quiet:
+                await print_summary(connection, password=args.password)
     finally:
         await pool.close()
 

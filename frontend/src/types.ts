@@ -60,3 +60,13 @@ export type CaseScan = {
 };
 
 export type CaseDetail = CaseSummary & { scans: CaseScan[] };
+
+export type ScanIngestionOutcome = "CASE_CREATED" | "EXISTING_CASE" | "OPEN_CASE_EXISTS" | "NOT_ELIGIBLE";
+
+export type ScanIngestionResponse = {
+  scan_id: number;
+  vehicle_id: number;
+  outcome: ScanIngestionOutcome;
+  case_id: number | null;
+  eligible: boolean | null;
+};

@@ -29,6 +29,7 @@ import type {
   CaseScan,
   CaseStatus,
   CaseSummary,
+  ScanIngestionResponse,
   UserProfile,
 } from "./types";
 import { CaseMap } from "./CaseMap";
@@ -52,6 +53,10 @@ import {
   Crosshair,
   Copy,
   Check,
+  Broadcast,
+  Lightning,
+  ArrowClockwise,
+  X,
 } from "@phosphor-icons/react";
 
 import demoImage1 from "../assets/image_1.png";
@@ -177,12 +182,12 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [copiedField, setCopiedField] = useState<"email" | "password" | null>(null);
+  const [copiedField, setCopiedField] = useState<"staff" | "admin" | "password" | null>(null);
 
   if (status === "loading") return <LoadingScreen />;
   if (user) return <Navigate to="/" replace />;
 
-  const handleCopy = (text: string, field: "email" | "password") => {
+  const handleCopy = (text: string, field: "staff" | "admin" | "password") => {
     void navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 1500);
@@ -236,19 +241,40 @@ function LoginPage() {
           <aside className="credentials-note" aria-label="Access credentials">
             <span className="credentials-label">Access credentials</span>
             <div className="credential-row">
-              <code>tenant1.admin@archetype.local</code>
+              <div className="credential-meta">
+                <span className="credential-badge">Field Staff (Claim & Manage)</span>
+                <code>tenant1.staff@archetype.local</code>
+              </div>
               <button
                 type="button"
                 className="copy-credential-btn"
-                onClick={() => handleCopy("tenant1.admin@archetype.local", "email")}
-                title="Copy email"
-                aria-label="Copy email"
+                onClick={() => handleCopy("tenant1.staff@archetype.local", "staff")}
+                title="Copy staff email"
+                aria-label="Copy staff email"
               >
-                {copiedField === "email" ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
+                {copiedField === "staff" ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
               </button>
             </div>
             <div className="credential-row">
-              <code>ArchetypeDemo!2026</code>
+              <div className="credential-meta">
+                <span className="credential-badge">Administrator (Review & Monitor)</span>
+                <code>tenant1.admin@archetype.local</code>
+              </div>
+              <button
+                type="button"
+                className="copy-credential-btn"
+                onClick={() => handleCopy("tenant1.admin@archetype.local", "admin")}
+                title="Copy admin email"
+                aria-label="Copy admin email"
+              >
+                {copiedField === "admin" ? <Check size={12} weight="bold" /> : <Copy size={12} weight="bold" />}
+              </button>
+            </div>
+            <div className="credential-row">
+              <div className="credential-meta">
+                <span className="credential-badge">Password</span>
+                <code>ArchetypeDemo!2026</code>
+              </div>
               <button
                 type="button"
                 className="copy-credential-btn"
@@ -266,11 +292,552 @@ function LoginPage() {
   );
 }
 
+type WebhookScenarioType = "preset_new" | "preset_active" | "custom";
+
+function SimulateWebhookModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const [activeTab, setActiveTab] = useState<WebhookScenarioType>("preset_new");
+  const [autoClaim, setAutoClaim] = useState(user?.role === "STAFF");
+  const [busy, setBusy] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const [error, setError] = useState("");
+
+  // Custom fields
+  const [customCameraId, setCustomCameraId] = useState(2);
+  const [customVin, setCustomVin] = useState("5NPE34AF9KH123456");
+  const [customPlate, setCustomPlate] = useState("HR26CD5678");
+  const [customLat, setCustomLat] = useState("28.4595");
+  const [customLng, setCustomLng] = useState("77.0266");
+  const [customImageUrl, setCustomImageUrl] = useState("https://example.invalid/scans/custom_sighting.jpg");
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
+      setError("");
+      setBusy(false);
+      setStatusText("");
+    }
+    if (!isOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setAutoClaim(user?.role === "STAFF");
+  }, [user?.role]);
+
+  const runSimulation = async (scenario: WebhookScenarioType) => {
+    setBusy(true);
+    setError("");
+    setStatusText("Dispatching camera ALPR webhook (POST /api/v1/scans)...");
+
+    try {
+      let payload: {
+        camera_id: number;
+        vin: string;
+        plate: string;
+        latitude: number;
+        longitude: number;
+        scanned_at: string;
+        image_url: string;
+      };
+
+      if (scenario === "preset_new") {
+        // Tenant B / cam_2050 - New Vehicle (Hyundai Sonata)
+        const jitterLat = 28.4595 + (Math.random() - 0.5) * 0.012;
+        const jitterLng = 77.0266 + (Math.random() - 0.5) * 0.012;
+        payload = {
+          camera_id: 2,
+          vin: "5NPE34AF9KH123456",
+          plate: "HR26CD5678",
+          latitude: parseFloat(jitterLat.toFixed(5)),
+          longitude: parseFloat(jitterLng.toFixed(5)),
+          scanned_at: new Date().toISOString(),
+          image_url: "https://example.invalid/scans/demo_scan_t2_live.jpg",
+        };
+      } else if (scenario === "preset_active") {
+        // Tenant A / cam_1001 - Active Case #1 (Ford F-150)
+        const jitterLat = 12.9716 + (Math.random() - 0.5) * 0.018;
+        const jitterLng = 77.5946 + (Math.random() - 0.5) * 0.018;
+        payload = {
+          camera_id: 1,
+          vin: "1FTFW1E51NFA12345",
+          plate: "KA01AB1234",
+          latitude: parseFloat(jitterLat.toFixed(5)),
+          longitude: parseFloat(jitterLng.toFixed(5)),
+          scanned_at: new Date().toISOString(),
+          image_url: "https://example.invalid/scans/demo_scan_t1_live.jpg",
+        };
+      } else {
+        const lat = parseFloat(customLat);
+        const lng = parseFloat(customLng);
+        if (Number.isNaN(lat) || Number.isNaN(lng)) {
+          throw new Error("Latitude and Longitude must be valid numbers");
+        }
+        if (customVin.trim().length !== 17) {
+          throw new Error("VIN must be exactly 17 characters");
+        }
+        payload = {
+          camera_id: Number(customCameraId),
+          vin: customVin.trim().toUpperCase(),
+          plate: customPlate.trim().toUpperCase(),
+          latitude: parseFloat(lat.toFixed(5)),
+          longitude: parseFloat(lng.toFixed(5)),
+          scanned_at: new Date().toISOString(),
+          image_url: customImageUrl.trim() || "https://example.invalid/scans/demo_custom.jpg",
+        };
+      }
+
+      // Step 1: Send webhook scan ingestion
+      const scanRes = await apiFetch<ScanIngestionResponse>("/api/v1/scans", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      let targetCaseId = scanRes.case_id;
+      let activated = false;
+
+      // Step 2: Auto-claim if eligible and requested
+      if (
+        (scanRes.outcome === "CASE_CREATED" || scanRes.outcome === "OPEN_CASE_EXISTS") &&
+        targetCaseId &&
+        autoClaim &&
+        user?.role === "STAFF"
+      ) {
+        setStatusText(`Auto-claiming case ${caseNumber(targetCaseId)} into ${user.tenant.name}...`);
+        try {
+          const claimRes = await apiFetch<CaseSummary>(`/api/v1/cases/${targetCaseId}/claim`, {
+            method: "POST",
+          });
+          targetCaseId = claimRes.id;
+          activated = true;
+        } catch (claimErr) {
+          console.warn("Auto-claim skipped or failed:", claimErr);
+        }
+      }
+
+      // Step 3: Trigger global refresh event
+      window.dispatchEvent(
+        new CustomEvent("case-updated", {
+          detail: { caseId: targetCaseId },
+        })
+      );
+
+      // Step 4: User feedback and navigation
+      if (scanRes.outcome === "CASE_CREATED") {
+        if (activated && targetCaseId) {
+          showToast(`Case ${caseNumber(targetCaseId)} created and activated for ${user?.tenant.name}!`);
+          onClose();
+          navigate(`/cases/${targetCaseId}`);
+        } else if (targetCaseId) {
+          showToast(`Case ${caseNumber(targetCaseId)} created in Claimable queue.`);
+          onClose();
+          navigate("/cases/claimable");
+        }
+      } else if (scanRes.outcome === "EXISTING_CASE" && targetCaseId) {
+        showToast(`Sighting added to active Case ${caseNumber(targetCaseId)}! Map updated.`);
+        onClose();
+        navigate(`/cases/${targetCaseId}`);
+      } else if (scanRes.outcome === "OPEN_CASE_EXISTS") {
+        if (activated && targetCaseId) {
+          showToast(`Claimed Case ${caseNumber(targetCaseId)}! Now active for ${user?.tenant.name}.`);
+          onClose();
+          navigate(`/cases/${targetCaseId}`);
+        } else {
+          showToast(`Case ${caseNumber(targetCaseId || 0)} is currently awaiting claim.`);
+          onClose();
+          navigate("/cases/claimable");
+        }
+      } else if (scanRes.outcome === "NOT_ELIGIBLE") {
+        showToast("Vehicle scan recorded. Vehicle is not currently eligible for repo.");
+        onClose();
+      } else {
+        showToast(`Scan ingested (${scanRes.outcome}).`);
+        onClose();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to simulate webhook scan");
+    } finally {
+      setBusy(false);
+      setStatusText("");
+    }
+  };
+
+  if (!isOpen) return <dialog ref={dialogRef} />;
+
+  return (
+    <dialog
+      className="webhook-dialog"
+      ref={dialogRef}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
+      <div className="webhook-sheet">
+        <button
+          type="button"
+          className="webhook-close-btn"
+          onClick={onClose}
+          disabled={busy}
+          aria-label="Close dialog"
+        >
+          <X size={18} weight="bold" />
+        </button>
+
+        <header className="webhook-sheet-header">
+          <div className="webhook-header-badge">
+            <Broadcast size={15} weight="bold" />
+            <span>MOCK WEBHOOK INGESTION</span>
+          </div>
+          <h2>Simulate Camera Sighting</h2>
+          <p>
+            Trigger external ALPR camera detections against <code>POST /api/v1/scans</code> to exercise
+            instant case activation, claiming, or real-time GPS coordinate additions.
+          </p>
+        </header>
+
+        {/* Current Tenant / Identity Context Strip */}
+        <div className="webhook-context-strip">
+          <span className="webhook-context-label">Current Session:</span>
+          <strong>{user?.firstName} {user?.lastName}</strong>
+          <span className="webhook-pill webhook-pill--role">{user?.role}</span>
+          <span className="sep-dot" aria-hidden="true">·</span>
+          <span>{user?.tenant.name}</span>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="webhook-tabs">
+          <button
+            type="button"
+            className={`webhook-tab-btn ${activeTab === "preset_new" ? "webhook-tab-btn--active" : ""}`}
+            onClick={() => setActiveTab("preset_new")}
+            disabled={busy}
+          >
+            <Lightning size={14} weight="bold" />
+            <span>New Case (Tenant B)</span>
+          </button>
+          <button
+            type="button"
+            className={`webhook-tab-btn ${activeTab === "preset_active" ? "webhook-tab-btn--active" : ""}`}
+            onClick={() => setActiveTab("preset_active")}
+            disabled={busy}
+          >
+            <MapPin size={14} weight="bold" />
+            <span>Live Ping (Tenant A)</span>
+          </button>
+          <button
+            type="button"
+            className={`webhook-tab-btn ${activeTab === "custom" ? "webhook-tab-btn--active" : ""}`}
+            onClick={() => setActiveTab("custom")}
+            disabled={busy}
+          >
+            <span>Custom Payload</span>
+          </button>
+        </div>
+
+        {/* Tab 1: New Case (Tenant B) */}
+        {activeTab === "preset_new" && (
+          <div className="webhook-panel">
+            <div className="scenario-card">
+              <div className="scenario-card-header">
+                <div>
+                  <span className="scenario-tag scenario-tag--highlight">NEW RECOVERY CASE</span>
+                  <h3>Tenant B Camera · Hyundai Sonata</h3>
+                </div>
+                <span className="scenario-endpoint">cam_2050 · Gurgaon</span>
+              </div>
+              <p className="scenario-desc">
+                Simulates camera <code>cam_2050</code> detecting unregistered vehicle <code>5NPE34AF9KH123456</code> (Plate HR26CD5678).
+                The partner network verifies repo eligibility, creates a case, and claims it as <strong>ACTIVE</strong>.
+              </p>
+
+              <div className="scenario-meta-grid">
+                <div>
+                  <label>Target Plate</label>
+                  <strong>HR26CD5678</strong>
+                </div>
+                <div>
+                  <label>Make & Model</label>
+                  <span>Hyundai Sonata</span>
+                </div>
+                <div>
+                  <label>Camera Serial</label>
+                  <span>cam_2050 (ID 2)</span>
+                </div>
+                <div>
+                  <label>Territory</label>
+                  <span>Cyber City, Gurgaon</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="webhook-claim-option">
+              <label className="webhook-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={autoClaim}
+                  onChange={(e) => setAutoClaim(e.target.checked)}
+                  disabled={busy || user?.role !== "STAFF"}
+                />
+                <div className="webhook-checkbox-copy">
+                  <strong>Auto-claim case immediately to make ACTIVE</strong>
+                  <p>
+                    {user?.role === "STAFF"
+                      ? `Immediately calls POST /api/v1/cases/:id/claim to assign the case to you in ${user.tenant.name} with ACTIVE status.`
+                      : `Disabled for ${user?.role}. Only STAFF users can claim cases. The case will be created in PENDING_CLAIM status.`}
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="button button--claim button--full webhook-execute-btn"
+              onClick={() => void runSimulation("preset_new")}
+              disabled={busy}
+            >
+              {busy ? (
+                <>
+                  <ArrowClockwise className="icon-spin" size={16} weight="bold" />
+                  <span>{statusText || "Processing simulation..."}</span>
+                </>
+              ) : (
+                <>
+                  <Broadcast size={16} weight="bold" />
+                  <span>Simulate Webhook & Activate Case</span>
+                  <span aria-hidden="true">→</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Tab 2: Live Ping (Tenant A) */}
+        {activeTab === "preset_active" && (
+          <div className="webhook-panel">
+            <div className="scenario-card">
+              <div className="scenario-card-header">
+                <div>
+                  <span className="scenario-tag">EXISTING ACTIVE CASE</span>
+                  <h3>Tenant A Camera · Ford F-150</h3>
+                </div>
+                <span className="scenario-endpoint">cam_1001 · Bengaluru</span>
+              </div>
+              <p className="scenario-desc">
+                Simulates camera <code>cam_1001</code> capturing a fresh sighting for <code>1FTFW1E51NFA12345</code> (Plate KA01AB1234).
+                Appends new coordinates to active Case #1 and plots an updated point on the surveillance map in real-time.
+              </p>
+
+              <div className="scenario-meta-grid">
+                <div>
+                  <label>Target Plate</label>
+                  <strong>KA01AB1234</strong>
+                </div>
+                <div>
+                  <label>Make & Model</label>
+                  <span>Ford F-150</span>
+                </div>
+                <div>
+                  <label>Camera Serial</label>
+                  <span>cam_1001 (ID 1)</span>
+                </div>
+                <div>
+                  <label>Territory</label>
+                  <span>Bengaluru, Karnataka</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="button button--dark button--full webhook-execute-btn"
+              onClick={() => void runSimulation("preset_active")}
+              disabled={busy}
+            >
+              {busy ? (
+                <>
+                  <ArrowClockwise className="icon-spin" size={16} weight="bold" />
+                  <span>{statusText || "Processing sighting..."}</span>
+                </>
+              ) : (
+                <>
+                  <MapPin size={16} weight="bold" />
+                  <span>Send Live Sighting Ping to Case #1</span>
+                  <span aria-hidden="true">→</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Tab 3: Custom Payload */}
+        {activeTab === "custom" && (
+          <div className="webhook-panel">
+            <div className="custom-payload-form">
+              <div className="form-row-2">
+                <label>
+                  <span>Camera ID</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={customCameraId}
+                    onChange={(e) => setCustomCameraId(Number(e.target.value))}
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  <span>License Plate</span>
+                  <input
+                    type="text"
+                    value={customPlate}
+                    onChange={(e) => setCustomPlate(e.target.value)}
+                    placeholder="e.g. HR26CD5678"
+                    disabled={busy}
+                  />
+                </label>
+              </div>
+
+              <label>
+                <span>Vehicle Identification Number (VIN)</span>
+                <input
+                  type="text"
+                  maxLength={17}
+                  value={customVin}
+                  onChange={(e) => setCustomVin(e.target.value)}
+                  placeholder="17-character VIN"
+                  disabled={busy}
+                />
+              </label>
+
+              <div className="form-row-2">
+                <label>
+                  <span>Latitude</span>
+                  <input
+                    type="text"
+                    value={customLat}
+                    onChange={(e) => setCustomLat(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  <span>Longitude</span>
+                  <input
+                    type="text"
+                    value={customLng}
+                    onChange={(e) => setCustomLng(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+              </div>
+
+              <div className="quick-coords-actions">
+                <span>Quick coordinates:</span>
+                <button
+                  type="button"
+                  className="coord-pill-btn"
+                  onClick={() => {
+                    setCustomLat("28.4595");
+                    setCustomLng("77.0266");
+                    setCustomCameraId(2);
+                  }}
+                  disabled={busy}
+                >
+                  Gurgaon (Tenant B)
+                </button>
+                <button
+                  type="button"
+                  className="coord-pill-btn"
+                  onClick={() => {
+                    setCustomLat("12.9716");
+                    setCustomLng("77.5946");
+                    setCustomCameraId(1);
+                  }}
+                  disabled={busy}
+                >
+                  Bengaluru (Tenant A)
+                </button>
+              </div>
+
+              <label>
+                <span>Scan Image URL</span>
+                <input
+                  type="url"
+                  value={customImageUrl}
+                  onChange={(e) => setCustomImageUrl(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+            </div>
+
+            <div className="webhook-claim-option">
+              <label className="webhook-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={autoClaim}
+                  onChange={(e) => setAutoClaim(e.target.checked)}
+                  disabled={busy || user?.role !== "STAFF"}
+                />
+                <div className="webhook-checkbox-copy">
+                  <strong>Auto-claim newly created case immediately</strong>
+                  <p>Assigns case to your staff account with ACTIVE status if a new case is generated.</p>
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="button button--dark button--full webhook-execute-btn"
+              onClick={() => void runSimulation("custom")}
+              disabled={busy}
+            >
+              {busy ? (
+                <>
+                  <ArrowClockwise className="icon-spin" size={16} weight="bold" />
+                  <span>{statusText || "Sending custom webhook..."}</span>
+                </>
+              ) : (
+                <>
+                  <Broadcast size={16} weight="bold" />
+                  <span>Execute Custom Webhook</span>
+                  <span aria-hidden="true">→</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {error ? (
+          <div className="form-error webhook-error-panel" role="alert">
+            <strong>Simulation failed:</strong> {error}
+          </div>
+        ) : null}
+      </div>
+    </dialog>
+  );
+}
+
 function ProtectedShell() {
   const { status, user, logout } = useAuth();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [simulationOpen, setSimulationOpen] = useState(false);
 
   if (status === "loading") return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace state={{ from: window.location.pathname + window.location.search }} />;
@@ -317,6 +884,31 @@ function ProtectedShell() {
             ) : null}
           </nav>
         </div>
+
+        <div className={`sidebar-simulation ${collapsed ? "sidebar-simulation--collapsed" : ""}`}>
+          {!collapsed && <p className="sidebar-label">Simulations</p>}
+          <button
+            type="button"
+            className={`sidebar-simulate-btn ${collapsed ? "sidebar-simulate-btn--collapsed" : ""}`}
+            onClick={() => setSimulationOpen(true)}
+            title="Simulate Camera Webhook (POST /api/v1/scans)"
+            aria-label="Simulate Camera Webhook"
+          >
+            <span className="simulate-btn-icon" aria-hidden="true">
+              <Broadcast size={collapsed ? 20 : 17} weight="bold" />
+            </span>
+            {!collapsed && (
+              <div className="simulate-btn-content">
+                <div className="simulate-btn-header">
+                  <strong>Mock Webhook</strong>
+                  <span className="simulate-pill">POST</span>
+                </div>
+                <span>Simulate camera scan</span>
+              </div>
+            )}
+          </button>
+        </div>
+
         <div
           className="sidebar-account"
           title={collapsed ? `${user.firstName} ${user.lastName} (${user.role} · ${user.tenant.name})` : undefined}
@@ -344,6 +936,7 @@ function ProtectedShell() {
         </div>
       </aside>
       <main className="workspace"><Outlet /></main>
+      <SimulateWebhookModal isOpen={simulationOpen} onClose={() => setSimulationOpen(false)} />
     </div>
   );
 }
@@ -466,6 +1059,14 @@ function CasesPage({ claimable = false }: { claimable?: boolean }) {
   if (vin) query.set("vin", vin);
   if (plate) query.set("plate", plate);
   if (!claimable && caseStatus) query.set("status", caseStatus);
+
+  useEffect(() => {
+    const handleCaseUpdated = () => {
+      setReloadKey((prev) => prev + 1);
+    };
+    window.addEventListener("case-updated", handleCaseUpdated);
+    return () => window.removeEventListener("case-updated", handleCaseUpdated);
+  }, []);
 
   const collection = useCaseCollection(claimable ? "/api/v1/cases/claimable" : "/api/v1/cases", query, reloadKey);
   const total = collection.data?.total ?? 0;
@@ -743,6 +1344,17 @@ function CaseDetailPage() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [caseId, reloadKey]);
+
+  useEffect(() => {
+    const handleCaseUpdated = (event: Event) => {
+      const custom = event as CustomEvent<{ caseId?: number }>;
+      if (!custom.detail?.caseId || String(custom.detail.caseId) === String(caseId)) {
+        setReloadKey((prev) => prev + 1);
+      }
+    };
+    window.addEventListener("case-updated", handleCaseUpdated);
+    return () => window.removeEventListener("case-updated", handleCaseUpdated);
+  }, [caseId]);
 
   if (loading && !data) return <div className="page-frame"><DetailSkeleton /></div>;
   if (error || !data) return (

@@ -1,39 +1,62 @@
 # Archetype
 
-FastAPI and React application backed by PostgreSQL, with JWT authentication,
-a raw-SQL LPR vehicle-recovery schema, and deterministic development data.
+Archetype is a multi-tenant vehicle-recovery prototype. Simulated LPR cameras
+submit sightings, eligible vehicles enter a shared claimable pool, and recovery
+staff can claim and inspect cases without exposing another tenant's camera or
+operator identity.
 
-## Prerequisites
+The implementation uses a React/Vite frontend, a FastAPI API, PostgreSQL with
+raw SQL, and JWT authentication through an HttpOnly cookie.
+
+## Run locally
+
+### Prerequisites
 
 - Docker with Compose
 - Python 3.12 and [`uv`](https://docs.astral.sh/uv/)
 - Node.js 20+ and npm
 
-## Run locally
+### Setup
 
-1. Copy the local environment defaults:
+Run these commands from the repository root unless a step says otherwise.
+
+1. Create the local environment file and start PostgreSQL:
 
    ```sh
    cp .env.example .env
-   ```
-
-2. Start PostgreSQL:
-
-   ```sh
    docker compose up -d
    ```
 
-3. Start the backend:
+2. Create the backend environment and install its dependencies:
 
    ```sh
    cd backend
    uv venv --python 3.12
    uv pip install -r requirements.txt
-   .venv/bin/python -m app.db.seed
+   cd ..
+   ```
+
+3. Seed the database. This is destructive: the default command drops and
+   recreates the application tables.
+
+   ```sh
+   ./seed.sh
+   ```
+
+   For the smaller, repeatable presentation scenario, use:
+
+   ```sh
+   ./seed_demo.sh
+   ```
+
+4. Start the API:
+
+   ```sh
+   cd backend
    .venv/bin/uvicorn app.main:app --reload
    ```
 
-4. In another terminal, start the frontend:
+5. In another terminal, start the frontend:
 
    ```sh
    cd frontend
@@ -41,99 +64,98 @@ a raw-SQL LPR vehicle-recovery schema, and deterministic development data.
    npm run dev
    ```
 
-Open <http://localhost:5173>. Vite proxies `/api` requests to the backend at
-<http://localhost:8000>.
+Open <http://localhost:5173>. Vite forwards `/api` requests to the FastAPI
+server at <http://localhost:8000>. The API health check is available at
+<http://localhost:8000/api/health>.
 
-## Demo authentication
-
-The seed creates twelve users across three tenants. Every seeded user uses the
-password `ArchetypeDemo!2026`; the seed command prints the full credential list.
-For example:
+The standard seed prints all generated accounts. For a quick login, use:
 
 ```text
-tenant1.admin@archetype.local
+tenant1.staff@archetype.local
 ArchetypeDemo!2026
 ```
 
-Authentication uses a 30-minute JWT stored in an HttpOnly, SameSite cookie.
-The browser never sends a user or tenant ID to identify the current user.
-
-- `POST /api/auth/login` accepts `email` and `password`.
-- `POST /api/auth/logout` clears the authentication cookie.
-- `GET /api/profile` returns the authenticated user's identity and tenant.
-
-## Health endpoint
-
-`GET http://localhost:8000/api/health` returns HTTP 200 when the API and
-database are available. If PostgreSQL cannot be reached, it returns HTTP 503
-with the backend still reported as available.
-
-## Scan ingestion
-
-Simulated cameras can submit a registry-backed sighting to
-`POST /api/v1/scans` without a user login. `camera_id` is the numeric
-`cameras.id`, and the tenant is resolved from that camera's agency vehicle.
-VINs are trimmed and uppercased, and plates are uppercased with spaces and
-hyphens removed before registry lookup.
-
-Every accepted sighting creates a scan. The response reports whether the
-vehicle already has an open case, is ineligible, or received a new
-`PENDING_CLAIM` case. The database permits one global pending case per vehicle
-and one active case per tenant and vehicle, while allowing historical closed
-cases.
-
-`POST /mock/partner-network/eligibility` exposes the local partner stub. A VIN
-is eligible only when its final character is an even digit.
-
-## Recovery cases
-
-Authenticated staff and administrators can read their tenant's active and
-closed cases through `GET /api/v1/cases` and `GET /api/v1/cases/{case_id}`.
-Only staff can browse the global pending pool at
-`GET /api/v1/cases/claimable` and atomically claim a pending case with
-`POST /api/v1/cases/{case_id}/claim`.
-
-The React workspace provides responsive My Cases, Claimable Cases, and Case
-Detail views. Staff can confirm a claim from the shared pool and move directly
-into its scan history; administrators retain tenant-scoped read access, while
-agents remain outside the case-management workspace.
-
-The list endpoints support exact normalized VIN/plate search and offset
-pagination with a default limit of 25 and maximum of 50. Case detail includes
-the vehicle's scan trail; source identities are redacted for scans originating
-from another tenant.
-
-## Reset development data
-
-From `backend/`, run:
+Useful seed options:
 
 ```sh
-.venv/bin/python -m app.db.seed
+./seed.sh --scans 200  # choose the generated scan count
+./seed.sh --no-fresh   # truncate data without rebuilding the schema
+./seed.sh --demo       # same focused fixture as ./seed_demo.sh
 ```
 
-The command applies `app/db/schema.sql`, clears the existing local application
-tables, loads deterministic Faker data, validates the required business
-invariants, and prints a summary. It is intended for development data only.
+## Implemented scope
 
-## Spec-driven development
+- Tenant-scoped login for `ADMIN`, `STAFF`, and `AGENT` users. The 30-minute
+  JWT is stored in an HttpOnly, SameSite cookie.
+- Camera scan ingestion with VIN/plate normalization and registry matching.
+- Automatic creation of an unassigned `PENDING_CLAIM` case for an eligible
+  vehicle that does not already have one.
+- Tenant-owned active and closed case lists, exact VIN/plate filtering,
+  pagination, case details, scan history, and map visualization.
+- A shared claimable pool with an atomic staff-only claim operation.
+- Redaction of camera, agency-vehicle, and reporter identity when a sighting
+  originated from another tenant.
+- Database constraints that prevent duplicate global pending cases and more
+  than one active case for the same tenant and vehicle.
 
-This repository is initialized with GitHub Spec Kit's Codex integration. Spec
-Kit's shared templates and scripts live in `.specify/`; its project-local Codex
-skills live in `.agents/skills/`.
+## Assumptions
 
-Run the following skills in Codex chat, not in the terminal:
+- A trusted upstream camera/partner system has already performed plate and VIN
+  recognition. Scan ingestion therefore accepts structured metadata and an
+  image URL; this service does not perform computer vision.
+- Cameras and target vehicles are pre-registered. An unknown camera or a
+  VIN/plate pair absent from the local registry is rejected rather than created
+  automatically.
+- A camera belongs to one agency vehicle, and that vehicle determines the
+  tenant that reported the sighting.
+- `PENDING_CLAIM` cases are visible across the partner network, but ownership
+  begins only when a staff user claims a case. Tenant boundaries apply after
+  claiming, and foreign source identities remain hidden.
+- Only staff claim cases. Administrators have tenant-scoped read access;
+  agents represent scan reporters and do not use the case-management views.
+- The partner's repossession-eligibility decision is represented locally by a
+  deterministic rule: a VIN is eligible when its final character is an even
+  digit. This exists only to make the workflow reproducible.
+- Seeded users, organizations, vehicles, coordinates, sightings, and images
+  are demonstration data and do not represent real people or operations.
 
-1. `$speckit-constitution` once, to agree on the project's engineering rules.
-2. `$speckit-specify` to describe a bounded feature and its intended outcome.
-3. `$speckit-clarify` when requirements still contain meaningful ambiguity.
-4. `$speckit-plan` to design the change against the existing codebase.
-5. `$speckit-tasks` to produce an actionable implementation sequence.
-6. `$speckit-analyze` to check consistency before implementation.
-7. `$speckit-implement` to execute the approved tasks.
-8. `$speckit-converge` to find remaining gaps; repeat implementation and
-   convergence until the result is converged.
+## Incomplete or simplified
 
-Keep each feature bounded and review the generated specification and plan before
-continuing. Existing code remains implementation context; a new specification
-describes the intended change rather than retroactively documenting the entire
-system.
+- **Camera security:** `POST /api/v1/scans` is intentionally unauthenticated.
+  A production integration needs per-device or partner credentials, request
+  signing, replay protection, and rate limiting.
+- **External integrations:** the partner registry and eligibility check are
+  local database/stub behavior; no real lender, registry, LPR, or dispatch
+  service is connected.
+- **Photo storage:** the API records an `image_url`; it does not upload images
+  to S3, issue presigned URLs, or enforce image retention and access policies.
+- **Case lifecycle:** claiming is implemented, but assignment changes,
+  closing/reopening cases, notes, audit history, and notifications are not.
+- **Authentication:** there is no password reset, refresh-token flow, account
+  lockout, MFA, SSO, or server-side token revocation.
+- **Database evolution:** schema changes use `schema.sql` and destructive seed
+  scripts rather than a versioned migration tool. The seed scripts are for
+  development/demo use only.
+- **Deployment:** the repository has no production AWS infrastructure or
+  application Docker image yet. Locally, React is served by Vite. Packaging the
+  React build into FastAPI/ECS, using RDS PostgreSQL, and storing scan photos in
+  S3 are proposed deployment steps, not current implementation.
+- **Scale and resilience:** scan processing is synchronous, and there is no
+  queue, background worker, autoscaling configuration, high-availability
+  topology, or disaster-recovery setup.
+
+## Tests
+
+With PostgreSQL running and backend dependencies installed:
+
+```sh
+cd backend
+.venv/bin/python -m unittest discover -s tests
+```
+
+Build-check the frontend with:
+
+```sh
+cd frontend
+npm run build
+```

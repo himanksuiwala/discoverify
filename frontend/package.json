@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed": "bash ../seed.sh",
+    "seed:demo": "bash ../seed_demo.sh"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
