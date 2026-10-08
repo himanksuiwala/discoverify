@@ -1,12 +1,17 @@
 import asyncio
+import os
 import random
 from datetime import UTC, datetime
 from pathlib import Path
 
 import asyncpg
+from argon2 import PasswordHasher
+from dotenv import load_dotenv
 from faker import Faker
 
 from app.db.connection import create_pool
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 Faker.seed(42)
 random.seed(42)
@@ -14,6 +19,7 @@ fake = Faker()
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 ROLES = ("ADMIN", "STAFF", "AGENT", "AGENT")
+DEMO_PASSWORD = os.getenv("DEMO_USER_PASSWORD", "ArchetypeDemo!2026")
 MAKES_AND_MODELS = (
     ("Ford", "F-150"),
     ("Toyota", "Camry"),
@@ -70,26 +76,39 @@ async def seed_users(
 ) -> tuple[list[int], dict[int, list[int]]]:
     user_ids = []
     agent_ids_by_tenant: dict[int, list[int]] = {}
+    password_hash = PasswordHasher().hash(DEMO_PASSWORD)
 
-    for tenant_id in tenant_ids:
+    for tenant_index, tenant_id in enumerate(tenant_ids, start=1):
         agent_ids_by_tenant[tenant_id] = []
+        role_counts = {"ADMIN": 0, "STAFF": 0, "AGENT": 0}
         for role in ROLES:
+            role_counts[role] += 1
+            role_suffix = role.casefold()
+            if role == "AGENT":
+                role_suffix += str(role_counts[role])
+            email = f"tenant{tenant_index}.{role_suffix}@archetype.local"
             user_id = await connection.fetchval(
                 """
-                INSERT INTO app_users (tenant_id, first_name, last_name, email, role)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO app_users (
+                    tenant_id, first_name, last_name, email, password_hash, role
+                )
+                VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING id
                 """,
                 tenant_id,
                 fake.first_name(),
                 fake.last_name(),
-                fake.unique.email(),
+                email,
+                password_hash,
                 role,
             )
             user_ids.append(user_id)
             if role == "AGENT":
                 agent_ids_by_tenant[tenant_id].append(user_id)
 
+    await connection.execute(
+        "ALTER TABLE app_users ALTER COLUMN password_hash SET NOT NULL"
+    )
     return user_ids, agent_ids_by_tenant
 
 
@@ -387,6 +406,12 @@ async def print_summary(connection: asyncpg.Connection) -> None:
     print(f"  Active: {case_counts.get('ACTIVE', 0)}")
     print(f"  Closed: {case_counts.get('CLOSED', 0)}")
     print(f"Scans: {counts['scans']}")
+    print("\nDemo sign-in")
+    print(f"Password (all users): {DEMO_PASSWORD}")
+    for row in await connection.fetch(
+        "SELECT email, role FROM app_users ORDER BY tenant_id, id"
+    ):
+        print(f"  {row['email']} ({row['role']})")
 
 
 async def main() -> None:

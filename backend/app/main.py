@@ -6,11 +6,14 @@ import asyncpg
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.auth import router as auth_router
+from app.auth import validate_auth_configuration
 from app.db.connection import close_pool, create_pool
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    validate_auth_configuration()
     app.state.db_pool = await create_pool()
     try:
         yield
@@ -19,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Archetype API", version="0.1.0", lifespan=lifespan)
+app.include_router(auth_router)
 
 
 @app.get("/api/health", tags=["health"])

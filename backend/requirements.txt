@@ -1,4 +1,7 @@
 asyncpg==0.30.0
+argon2-cffi==25.1.0
 Faker==37.1.0
 fastapi==0.115.12
+PyJWT==2.15.1
+python-dotenv==1.2.4
 uvicorn[standard]==0.34.2

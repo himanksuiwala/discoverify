@@ -1,7 +1,7 @@
 # Archetype
 
-Minimal FastAPI and React health dashboard backed by PostgreSQL, with a raw-SQL
-LPR vehicle-recovery schema and deterministic development data.
+FastAPI and React application backed by PostgreSQL, with JWT authentication,
+a raw-SQL LPR vehicle-recovery schema, and deterministic development data.
 
 ## Prerequisites
 
@@ -44,6 +44,24 @@ LPR vehicle-recovery schema and deterministic development data.
 Open <http://localhost:5173>. Vite proxies `/api` requests to the backend at
 <http://localhost:8000>.
 
+## Demo authentication
+
+The seed creates twelve users across three tenants. Every seeded user uses the
+password `ArchetypeDemo!2026`; the seed command prints the full credential list.
+For example:
+
+```text
+tenant1.admin@archetype.local
+ArchetypeDemo!2026
+```
+
+Authentication uses a 30-minute JWT stored in an HttpOnly, SameSite cookie.
+The browser never sends a user or tenant ID to identify the current user.
+
+- `POST /api/auth/login` accepts `email` and `password`.
+- `POST /api/auth/logout` clears the authentication cookie.
+- `GET /api/profile` returns the authenticated user's identity and tenant.
+
 ## Health endpoint
 
 `GET http://localhost:8000/api/health` returns HTTP 200 when the API and
@@ -61,3 +79,26 @@ From `backend/`, run:
 The command applies `app/db/schema.sql`, clears the existing local application
 tables, loads deterministic Faker data, validates the required business
 invariants, and prints a summary. It is intended for development data only.
+
+## Spec-driven development
+
+This repository is initialized with GitHub Spec Kit's Codex integration. Spec
+Kit's shared templates and scripts live in `.specify/`; its project-local Codex
+skills live in `.agents/skills/`.
+
+Run the following skills in Codex chat, not in the terminal:
+
+1. `$speckit-constitution` once, to agree on the project's engineering rules.
+2. `$speckit-specify` to describe a bounded feature and its intended outcome.
+3. `$speckit-clarify` when requirements still contain meaningful ambiguity.
+4. `$speckit-plan` to design the change against the existing codebase.
+5. `$speckit-tasks` to produce an actionable implementation sequence.
+6. `$speckit-analyze` to check consistency before implementation.
+7. `$speckit-implement` to execute the approved tasks.
+8. `$speckit-converge` to find remaining gaps; repeat implementation and
+   convergence until the result is converged.
+
+Keep each feature bounded and review the generated specification and plan before
+continuing. Existing code remains implementation context; a new specification
+describes the intended change rather than retroactively documenting the entire
+system.

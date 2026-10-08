@@ -28,10 +28,14 @@ CREATE TABLE IF NOT EXISTS app_users (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('ADMIN', 'STAFF', 'AGENT')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE app_users
+    ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 CREATE TABLE IF NOT EXISTS target_vehicles (
     id BIGSERIAL PRIMARY KEY,
@@ -80,5 +84,5 @@ CREATE INDEX IF NOT EXISTS scans_scanned_at_idx ON scans(scanned_at);
 CREATE INDEX IF NOT EXISTS scans_vehicle_id_scanned_at_idx ON scans(vehicle_id, scanned_at);
 
 CREATE INDEX IF NOT EXISTS app_users_tenant_id_idx ON app_users(tenant_id);
+CREATE UNIQUE INDEX IF NOT EXISTS app_users_email_lower_idx ON app_users(LOWER(email));
 CREATE INDEX IF NOT EXISTS agency_vehicles_tenant_id_idx ON agency_vehicles(tenant_id);
-
