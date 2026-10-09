@@ -12,10 +12,10 @@ truth.
 
 ## Database design
 
-![Discoverify current PostgreSQL schema](./artifacts/db-schema.svg)
+![Discoverify current PostgreSQL schema](./db-schema.svg)
 
 The implemented schema is defined in
-[`backend/app/db/schema.sql`](./backend/app/db/schema.sql). Its key decisions
+[`backend/app/db/schema.sql`](../backend/app/db/schema.sql). Its key decisions
 are:
 
 - Agency vehicles belong to tenants; cameras belong to agency vehicles. Scan
@@ -88,7 +88,7 @@ limiting.
 
 ## Deployment sketch
 
-![Discoverify simple AWS deployment](./artifacts/aws_basic.png)
+![Discoverify simple AWS deployment](./aws_basic.png)
 
 The initial AWS deployment keeps one application unit:
 

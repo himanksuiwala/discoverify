@@ -130,7 +130,10 @@ Useful seed options:
 - **Photo storage:** the API records an `image_url`; it does not upload images
   to S3, issue presigned URLs, or enforce image retention and access policies.
 - **Case lifecycle:** claiming is implemented, but assignment changes,
-  closing/reopening cases, notes, audit history, and notifications are not.
+  closing/reopening cases, notes, and audit history are not.
+- **Notifications:** no notification workflow has been designed or implemented
+  yet. Delivery channels, recipients, preferences, retries, and event triggers
+  remain open for technical discussion.
 - **Authentication:** there is no password reset, refresh-token flow, account
   lockout, MFA, SSO, or server-side token revocation.
 - **Database evolution:** schema changes use `schema.sql` and destructive seed
@@ -146,7 +149,7 @@ Useful seed options:
 
 ## Tests
 
-With PostgreSQL running and backend dependencies installed:
+With the backend dependencies installed:
 
 ```sh
 cd backend
@@ -159,3 +162,9 @@ Build-check the frontend with:
 cd frontend
 npm run build
 ```
+
+## Design references
+
+- [Architecture and data-design note](artifacts/design-note.md)
+- [Current PostgreSQL schema](artifacts/db-schema.svg)
+- [Proposed initial deployment](artifacts/aws_basic.png)
