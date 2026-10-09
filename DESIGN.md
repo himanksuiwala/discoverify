@@ -1,7 +1,7 @@
-# Archetype Recovery Operations — Design System & UI/UX Specification
+# Discoverify Recovery Operations — Design System & UI/UX Specification
 
 **Document:** DESIGN.md  
-**Product:** Archetype LPR Vehicle Recovery Operations  
+**Product:** Discoverify LPR Vehicle Recovery Operations  
 **Architecture:** React 19, TypeScript, Vite, Vanilla CSS Architecture  
 **Typography:** Inter (via Google Fonts) with Tabular Numerals & Monospace Code fallbacks  
 
@@ -9,7 +9,7 @@
 
 ## 1. Design Philosophy & Aesthetic Identity
 
-Archetype Operations is an operational intelligence workstation engineered for vehicle recovery agencies, field staff, and administrative teams. The visual style embodies **Editorial Industrial Brutalism**:
+Discoverify Operations is an operational intelligence workstation engineered for vehicle recovery agencies, field staff, and administrative teams. The visual style embodies **Editorial Industrial Brutalism**:
 
 - **Tactile & Authoritative:** High-contrast, sharp-cornered geometry inspired by technical drafting blueprints, flight operation manifests, and physical situation-room clipboards.
 - **Low Cognitive Overhead:** Eliminates fuzzy neumorphic gradients, floating pastel shadows, and decorative clutter. Every visual element has a functional purpose.

@@ -1,6 +1,6 @@
-# Archetype
+# Discoverify
 
-Archetype is a multi-tenant vehicle-recovery prototype. Simulated LPR cameras
+Discoverify is a multi-tenant vehicle-recovery prototype. Simulated LPR cameras
 submit sightings, eligible vehicles enter a shared claimable pool, and recovery
 staff can claim and inspect cases without exposing another tenant's camera or
 operator identity.
