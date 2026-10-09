@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Discoverify current PostgreSQL schema</title>
+  <desc id="desc">Entity relationship diagram generated from backend/app/db/schema.sql.</desc>
+  <defs>
+    <style>
+      .canvas { fill: #f8fafc; }
+      .title { font: 700 34px Inter, Arial, sans-serif; fill: #102a43; }
+      .subtitle { font: 400 16px Inter, Arial, sans-serif; fill: #627d98; }
+      .box { fill: #ffffff; stroke: #bcccdc; stroke-width: 2; rx: 10; }
+      .head-blue { fill: #d9eafd; }
+      .head-green { fill: #dff3e7; }
+      .head-purple { fill: #eadffd; }
+      .head-amber { fill: #fff0c7; }
+      .head-rose { fill: #fde2ea; }
+      .head-cyan { fill: #daf3f5; }
+      .entity { font: 700 19px Inter, Arial, sans-serif; fill: #102a43; }
+      .field { font: 500 14px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #243b53; }
+      .type { font: 400 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #627d98; }
+      .key { font: 700 12px Inter, Arial, sans-serif; fill: #b45309; }
+      .rule { fill: #fffdf5; stroke: #d9b44a; stroke-width: 1.5; rx: 8; }
+      .rule-title { font: 700 15px Inter, Arial, sans-serif; fill: #7c4a03; }
+      .rule-text { font: 400 13px Inter, Arial, sans-serif; fill: #52606d; }
+      .edge { fill: none; stroke: #486581; stroke-width: 2; marker-end: url(#arrow); }
+      .edge-dashed { fill: none; stroke: #486581; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .cardinality { font: 700 13px Inter, Arial, sans-serif; fill: #334e68; paint-order: stroke; stroke: #f8fafc; stroke-width: 5; }
+      .relation { font: 500 12px Inter, Arial, sans-serif; fill: #627d98; paint-order: stroke; stroke: #f8fafc; stroke-width: 5; }
+      .divider { stroke: #d9e2ec; stroke-width: 1; }
+    </style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#486581"/>
+    </marker>
+  </defs>
+
+  <rect class="canvas" width="1600" height="1080"/>
+  <text class="title" x="70" y="60">Discoverify — Current PostgreSQL Schema</text>
+  <text class="subtitle" x="70" y="88">Source of truth: backend/app/db/schema.sql · PK = primary key · FK = foreign key · UQ = unique · NULL = nullable</text>
+
+  <!-- Relationships are drawn behind entities. -->
+  <path class="edge" d="M325 285 L325 350"/>
+  <text class="cardinality" x="335" y="312">1</text><text class="cardinality" x="335" y="344">N</text>
+  <text class="relation" x="350" y="330">has users</text>
+
+  <path class="edge" d="M470 210 L610 210"/>
+  <text class="cardinality" x="480" y="198">1</text><text class="cardinality" x="592" y="198">N</text>
+  <text class="relation" x="510" y="194">owns</text>
+
+  <path class="edge" d="M940 210 L1080 210"/>
+  <text class="cardinality" x="950" y="198">1</text><text class="cardinality" x="1062" y="198">N</text>
+  <text class="relation" x="994" y="194">carries</text>
+
+  <path class="edge" d="M325 655 L325 720"/>
+  <text class="cardinality" x="335" y="682">1</text><text class="cardinality" x="335" y="714">N</text>
+  <text class="relation" x="350" y="700">assigned to</text>
+
+  <path class="edge-dashed" d="M470 535 L960 535 L960 815 L1110 815"/>
+  <text class="cardinality" x="480" y="523">1</text><text class="cardinality" x="1090" y="803">N</text>
+  <text class="relation" x="720" y="523">optionally reports</text>
+
+  <path class="edge" d="M1315 435 L1315 720"/>
+  <text class="cardinality" x="1325" y="465">1</text><text class="cardinality" x="1325" y="710">N</text>
+  <text class="relation" x="1338" y="585">captures</text>
+
+  <path class="edge" d="M800 655 L800 720"/>
+  <text class="cardinality" x="810" y="682">1</text><text class="cardinality" x="810" y="714">N</text>
+  <text class="relation" x="825" y="700">has cases</text>
+
+  <path class="edge" d="M965 535 L1070 535 L1070 870 L1110 870"/>
+  <text class="cardinality" x="975" y="523">1</text><text class="cardinality" x="1092" y="858">N</text>
+  <text class="relation" x="984" y="554">observed in</text>
+
+  <path class="edge-dashed" d="M470 255 L535 255 L535 770 L635 770"/>
+  <text class="cardinality" x="480" y="243">1</text><text class="cardinality" x="615" y="758">N</text>
+  <text class="relation" x="545" y="750">owns after claim</text>
+
+  <!-- tenants -->
+  <g transform="translate(180 120)">
+    <rect class="box" width="290" height="165"/>
+    <path class="head-blue" d="M10 0 H280 Q290 0 290 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">tenants</text>
+    <line class="divider" x1="0" y1="42" x2="290" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="150" y="66">BIGSERIAL</text><text class="key" x="255" y="66">PK</text>
+    <text class="field" x="16" y="89">name</text><text class="type" x="150" y="89">TEXT</text>
+    <text class="field" x="16" y="112">location</text><text class="type" x="150" y="112">TEXT</text>
+    <text class="field" x="16" y="135">created_at</text><text class="type" x="150" y="135">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="158">updated_at</text><text class="type" x="150" y="158">TIMESTAMPTZ</text>
+  </g>
+
+  <!-- agency vehicles -->
+  <g transform="translate(610 120)">
+    <rect class="box" width="330" height="180"/>
+    <path class="head-green" d="M10 0 H320 Q330 0 330 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">agency_vehicles</text>
+    <line class="divider" x1="0" y1="42" x2="330" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="170" y="66">BIGSERIAL</text><text class="key" x="292" y="66">PK</text>
+    <text class="field" x="16" y="89">tenant_id</text><text class="type" x="170" y="89">BIGINT</text><text class="key" x="292" y="89">FK</text>
+    <text class="field" x="16" y="112">identifier</text><text class="type" x="170" y="112">TEXT</text><text class="key" x="292" y="112">UQ</text>
+    <text class="field" x="16" y="135">created_at</text><text class="type" x="170" y="135">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="158">updated_at</text><text class="type" x="170" y="158">TIMESTAMPTZ</text>
+  </g>
+
+  <!-- cameras -->
+  <g transform="translate(1080 120)">
+    <rect class="box" width="350" height="180"/>
+    <path class="head-purple" d="M10 0 H340 Q350 0 350 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">cameras</text>
+    <line class="divider" x1="0" y1="42" x2="350" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="190" y="66">BIGSERIAL</text><text class="key" x="312" y="66">PK</text>
+    <text class="field" x="16" y="89">agency_vehicle_id</text><text class="type" x="190" y="89">BIGINT</text><text class="key" x="312" y="89">FK</text>
+    <text class="field" x="16" y="112">serial_number</text><text class="type" x="190" y="112">TEXT</text><text class="key" x="312" y="112">UQ</text>
+    <text class="field" x="16" y="135">created_at</text><text class="type" x="190" y="135">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="158">updated_at</text><text class="type" x="190" y="158">TIMESTAMPTZ</text>
+  </g>
+
+  <!-- app users -->
+  <g transform="translate(150 350)">
+    <rect class="box" width="320" height="305"/>
+    <path class="head-rose" d="M10 0 H310 Q320 0 320 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">app_users</text>
+    <line class="divider" x1="0" y1="42" x2="320" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="160" y="66">BIGSERIAL</text><text class="key" x="282" y="66">PK</text>
+    <text class="field" x="16" y="89">tenant_id</text><text class="type" x="160" y="89">BIGINT</text><text class="key" x="282" y="89">FK</text>
+    <text class="field" x="16" y="112">first_name</text><text class="type" x="160" y="112">TEXT</text>
+    <text class="field" x="16" y="135">last_name</text><text class="type" x="160" y="135">TEXT</text>
+    <text class="field" x="16" y="158">email</text><text class="type" x="160" y="158">TEXT</text><text class="key" x="282" y="158">UQ</text>
+    <text class="field" x="16" y="181">password_hash</text><text class="type" x="160" y="181">TEXT</text>
+    <text class="field" x="16" y="204">role</text><text class="type" x="160" y="204">TEXT</text>
+    <text class="type" x="16" y="228">ADMIN | STAFF | AGENT</text>
+    <text class="field" x="16" y="257">created_at</text><text class="type" x="160" y="257">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="280">updated_at</text><text class="type" x="160" y="280">TIMESTAMPTZ</text>
+  </g>
+
+  <!-- target vehicles -->
+  <g transform="translate(635 350)">
+    <rect class="box" width="330" height="305"/>
+    <path class="head-blue" d="M10 0 H320 Q330 0 330 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">target_vehicles</text>
+    <line class="divider" x1="0" y1="42" x2="330" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="170" y="66">BIGSERIAL</text><text class="key" x="292" y="66">PK</text>
+    <text class="field" x="16" y="89">vin</text><text class="type" x="170" y="89">TEXT</text><text class="key" x="292" y="89">UQ</text>
+    <text class="field" x="16" y="112">plate</text><text class="type" x="170" y="112">TEXT</text><text class="key" x="292" y="112">UQ*</text>
+    <text class="field" x="16" y="135">make</text><text class="type" x="170" y="135">TEXT</text>
+    <text class="field" x="16" y="158">model</text><text class="type" x="170" y="158">TEXT</text>
+    <text class="field" x="16" y="181">created_at</text><text class="type" x="170" y="181">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="204">updated_at</text><text class="type" x="170" y="204">TIMESTAMPTZ</text>
+    <line class="divider" x1="16" y1="220" x2="314" y2="220"/>
+    <text class="type" x="16" y="244">* normalized unique index</text>
+    <text class="type" x="16" y="266">VIN: uppercase, trimmed</text>
+    <text class="type" x="16" y="288">Plate: uppercase, no spaces/hyphens</text>
+  </g>
+
+  <!-- recovery cases -->
+  <g transform="translate(575 720)">
+    <rect class="box" width="390" height="280"/>
+    <path class="head-purple" d="M10 0 H380 Q390 0 390 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">recovery_cases</text>
+    <line class="divider" x1="0" y1="42" x2="390" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="200" y="66">BIGSERIAL</text><text class="key" x="352" y="66">PK</text>
+    <text class="field" x="16" y="89">vehicle_id</text><text class="type" x="200" y="89">BIGINT</text><text class="key" x="352" y="89">FK</text>
+    <text class="field" x="16" y="112">status</text><text class="type" x="200" y="112">TEXT</text>
+    <text class="field" x="16" y="135">tenant_id</text><text class="type" x="200" y="135">BIGINT NULL</text><text class="key" x="352" y="135">FK</text>
+    <text class="field" x="16" y="158">assignee_id</text><text class="type" x="200" y="158">BIGINT NULL</text><text class="key" x="352" y="158">FK</text>
+    <text class="field" x="16" y="181">created_at</text><text class="type" x="200" y="181">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="204">updated_at</text><text class="type" x="200" y="204">TIMESTAMPTZ</text>
+    <line class="divider" x1="16" y1="220" x2="374" y2="220"/>
+    <text class="type" x="16" y="244">PENDING_CLAIM | ACTIVE | CLOSED</text>
+    <text class="type" x="16" y="266">Assignment constrained by status</text>
+  </g>
+
+  <!-- scans -->
+  <g transform="translate(1110 720)">
+    <rect class="box" width="380" height="315"/>
+    <path class="head-amber" d="M10 0 H370 Q380 0 380 10 V42 H0 V10 Q0 0 10 0"/>
+    <text class="entity" x="16" y="28">scans</text>
+    <line class="divider" x1="0" y1="42" x2="380" y2="42"/>
+    <text class="field" x="16" y="66">id</text><text class="type" x="190" y="66">BIGSERIAL</text><text class="key" x="342" y="66">PK</text>
+    <text class="field" x="16" y="89">camera_id</text><text class="type" x="190" y="89">BIGINT</text><text class="key" x="342" y="89">FK</text>
+    <text class="field" x="16" y="112">reported_by</text><text class="type" x="190" y="112">BIGINT NULL</text><text class="key" x="342" y="112">FK</text>
+    <text class="field" x="16" y="135">vehicle_id</text><text class="type" x="190" y="135">BIGINT NULL</text><text class="key" x="342" y="135">FK</text>
+    <text class="field" x="16" y="158">image_url</text><text class="type" x="190" y="158">TEXT</text>
+    <text class="field" x="16" y="181">latitude</text><text class="type" x="190" y="181">DOUBLE PRECISION</text>
+    <text class="field" x="16" y="204">longitude</text><text class="type" x="190" y="204">DOUBLE PRECISION</text>
+    <text class="field" x="16" y="227">scanned_at</text><text class="type" x="190" y="227">TIMESTAMPTZ</text>
+    <text class="field" x="16" y="250">created_at</text><text class="type" x="190" y="250">TIMESTAMPTZ</text>
+    <line class="divider" x1="16" y1="266" x2="364" y2="266"/>
+    <text class="type" x="16" y="290">No case_id: history joins via vehicle_id</text>
+  </g>
+
+  <!-- rules -->
+  <g transform="translate(70 755)">
+    <rect class="rule" width="420" height="215"/>
+    <text class="rule-title" x="18" y="30">Key database invariants</text>
+    <text class="rule-text" x="18" y="61">• One global PENDING_CLAIM case per vehicle</text>
+    <text class="rule-text" x="18" y="88">• One ACTIVE case per tenant + vehicle</text>
+    <text class="rule-text" x="18" y="115">• Pending case: tenant and assignee are NULL</text>
+    <text class="rule-text" x="18" y="142">• Active/closed: tenant and assignee are required</text>
+    <text class="rule-text" x="18" y="169">• Camera tenancy derives through agency_vehicle</text>
+    <text class="rule-text" x="18" y="196">• Foreign keys preserve the ownership graph</text>
+  </g>
+
+  <text class="subtitle" x="70" y="1050">Generated from the current implementation; excludes operational indexes that do not change entity relationships.</text>
+</svg>
